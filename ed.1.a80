@@ -40,7 +40,7 @@ WaitConst EQU 7500
 
 ; BCПOMOГAT.ПOДПPOГPAMMЫ
 ;________________________
-
+;  Выбор подпрограммы для выполнения в зависимости от нажатой кнопки
 ;  BXOД:  A,B,List
 ;  HAPУШAET: B
 
@@ -585,44 +585,90 @@ Menu_Addr DW 0
 Menu_Struct
 ;BЫXOД: IX -AДPEC CTPУKTУPЫ
 ; HOMEP A (A<40)
-        push bc:add a,a:ld c,a
-        add a,a:add a,c:ld c,a
+        push bc
+        add a,a
+        ld c,a
+        add a,a
+        add a,c
+        ld c,a
         ld b,0   ;bc:= a*6
-        inc bc:inc bc:ld ix,(Menu_Addr)
-        add ix,bc:pop bc:ret
+        inc bc
+        inc bc
+        ld ix,(Menu_Addr)
+        add ix,bc
+        pop bc
+        ret
 
+;Окраска пункта меню
 Menu_Cursor
-        ld hl,(Menu_Addr):ld a,(hl)
-        call Menu_Struct:ld a,(ix+0)
-        rrca:rrca:rrca:ld h,a
-        and %11100000:add a,(ix+1)
-        ld l,a:ld a,h:and 3:or #58
-        ld h,a:ld b,(ix+2)
-M_Crsr1   ld a,(hl):and 7
-          rlca:rlca:rlca:ld c,a
-          ld a,(hl):and %00111000
-          rrca:rrca:rrca:or c
-          ld c,a:ld a,(hl):and %11000000
-          or c:ld (hl),a:inc hl
-        DJNZ M_Crsr1:ret
+        ret             ;todo: реализовать окраску пункта меню
+;         ld hl,(Menu_Addr)
+;         ld a,(hl)
+;         call Menu_Struct
+;         ld a,(ix+0)
+;         rrca:rrca:rrca
+;         ld h,a
+;         and %11100000
+;         add a,(ix+1)
+;         ld l,a
+;         ld a,h
+;         and 3
+;         or #58
+;         ld h,a
+;         ld b,(ix+2)
+; M_Crsr1   ld a,(hl)
+;         and 7
+;           rlca:rlca:rlca
+;           ld c,a
+;           ld a,(hl)
+;           and %00111000
+;           rrca:rrca:rrca
+;           or c
+;           ld c,a
+;           ld a,(hl)
+;           and %11000000
+;           or c
+;           ld (hl),a
+;           inc hl
+;         DJNZ M_Crsr1
+;         ret
 
 Menu    push bc:push de
         ld (Menu_Addr),hl
-Menu1   call Menu_Cursor
-Menu2   bit 5,(iy+1):jr z,Menu2
-        res 5,(iy+1):call Menu_Cursor
-        ld hl,(Menu_Addr):ld a,(23560)
-        ld b,6:call Case
-          DB 13:DW MenuEnt
-          DB 32:DW MenuEsc
-          DB 8:DW Menu_Up
-          DB 9:DW Menu_Dn
-          DB 10:DW Menu_Dn
-          DB 11:DW Menu_Up
-        ld c,a:inc hl:ld b,(hl):dec hl
-Menu3    ld a,b:dec a:call Menu_Struct
-         ld a,(ix+3):cp c:jr z,Menu4
-        djnz Menu3:jr Menu1
+Menu1           call Menu_Cursor
+Menu2           ld c,Dss.WaitKey
+                rst #10
+                push af
+                ; bit 5,(iy+1)
+                ; jr z,Menu2
+                ; res 5,(iy+1)
+                call Menu_Cursor
+                pop af
+                ld hl,(Menu_Addr)
+        ;ld a,(23560)
+                ; ld      c,Dss.ScanKey
+                ; rst     #10
+                ; jr      z,.nokey
+                ld b,6
+                call Case
+                DB 13:DW MenuEnt
+                DB 32:DW MenuEsc
+                DB 8:DW Menu_Up
+                DB 9:DW Menu_Dn
+                DB 10:DW Menu_Dn
+                DB 11:DW Menu_Up
+.nokey          ld c,a
+                inc hl
+                ld b,(hl)
+                dec hl
+Menu3           ld a,b
+                dec a
+                call Menu_Struct
+                ld a,(ix+3)
+                cp c
+                jr z,Menu4
+                djnz Menu3
+                jr Menu1
 
 Menu4   dec b:ld (hl),b
 MenuEnt call Menu_Cursor:call Beep
