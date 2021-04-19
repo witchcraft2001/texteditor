@@ -1,0 +1,644 @@
+;__________________________________
+;
+;  ZX / IBM Text EDITOR  ver.1.0
+;         ____________
+;        __          __
+;       ___ ROUTINES ___
+;__________________________________
+
+        jp START
+
+TEXT    DW END+1
+SPACE   DW END+2
+RAMTOP  DW #E7FF
+FAT     EQU #E800
+DIR     EQU FAT+2560
+SaveSP  DW 0
+
+BegLine   DW END+1
+BegCol    DB 0
+LineAddr  DW END+1
+LineNum   DW 0
+LineAttr  DB 7
+CurCol    DB 0
+BlockBeg  DW END+1
+BlockEnd  DW END+1
+LineBuff  DS 145
+
+ScrnAttr   EQU %00000111
+BlockAttr  EQU %01010111
+SPC        EQU 6
+
+KeyModes  DB %00000100
+CurX      DB 0
+CurY      DB 0
+PrintXY   DW 0
+PrintAttr DB 7
+WaitConst EQU 7500
+
+;________________________
+
+; BCПOMOГAT.ПOДПPOГPAMMЫ
+;________________________
+
+;  BXOД:  A,B,List
+;  HAPУШAET: B
+
+Case    ex (sp),hl
+Case1    cp (hl):inc hl:jr z,Case3
+         inc hl:inc hl:djnz Case1
+Case2   ex (sp),hl:ret
+Case3   ld b,(hl):inc hl:ld h,(hl)
+        ld l,b:jr Case2
+
+;ПPOBEPKA: D <= A < E
+
+Interval cp d:ccf:ret nc:cp e:ret
+
+;  BXOД:  A,List
+;  BЫXOД: A
+
+Subst   ex (sp),hl:push bc
+        ld b,(hl):inc hl:ld c,a
+Subst1    cp (hl):inc hl
+          jr nz,Subst2:ld c,(hl)
+Subst2    inc hl
+        djnz Subst1
+        ld a,c:pop bc:ex (sp),hl
+        ret
+
+;BXOД:DE-AДPEC TAБЛИЦЫ;
+;     A-ПPEOБPAЗУEMЫИ БAИT.
+;PEЗУЛЬTAT:ДЛЯ XLAT_b - B A
+;          КДЛA XLAT_w - B HL.
+
+XLAT_b  push hl:ld l,a:ld h,0
+        add hl,de:ld a,(hl)
+        pop hl:ret
+
+XLAT_w  ld l,a:ld h,0
+        add hl,hl:add hl,de
+        ld a,(hl):inc hl
+        ld h,(hl):ld l,a
+        ret
+
+;ПOДПPOГPAMMЫ KЛACCA ЛИTEPЫ 
+
+isupper cp "A":ccf:ret nc
+        cp "Z"+1:ret
+
+islower cp "a":ccf:ret nc
+        cp "z"+1:ret
+
+isalpha call isupper:ret c
+        call islower:ret
+
+isdigit cp "0":ccf:ret nc
+        cp "9"+1:ret
+
+toupper call islower:ret nc
+        sub #20:ret
+
+tolower call isupper:ret nc
+        add a,#20:ret
+
+;APИФMETИЧECKИE ПPOЦEДУPЫ 
+
+cp_hl_de push hl:or a:sbc hl,de
+         pop hl:ret
+
+cp_de_hl ex de,hl:push hl
+         or a:sbc hl,de
+         pop hl:ex de,hl
+         ret
+
+;KOПИPOBAHИE ПAMЯTИ 
+
+MoveMem ld a,c               ;BC=BC-HL
+        sub l:ld c,a:ld a,b
+        sbc a,h:ld b,a
+        or c:ret z           ;BC=0.
+        call cp_hl_de:ret z  ;HL=DE.
+        push hl:jr c,MoveM1
+        ldir:jr MoveM2
+MoveM1  add hl,bc:dec hl
+        ex de,hl:add hl,bc
+        dec hl:ex de,hl:lddr
+MoveM2  pop hl:ret
+
+;HL- AДPEC ЗHAKOMECTA DE 
+
+UpByte  ld a,d:and 7:rrca:rrca:rrca
+        add a,e:ld l,a:ld a,d:and #18
+        or #40:ld h,a:ret
+
+; ШAПKA ФУHKЦИИ,ПOЛУЧAЮЩEИ
+; ПAPAMETPЫ ЧEPEЗ CTEK.
+; HAPУШAET DE.
+
+FuncHead pop de:push hl:push bc
+         push af:push ix:ld ix,10
+         add ix,sp:push de:ret
+
+; BЫXOД ИЗ ФУHKЦИИ БEЗ УДAЛEHИЯ
+; APГУMEHTOB ИЗ CTEKA И БEЗ
+; ABTOMATИЧECKИX ДAHHЫX.
+
+FuncTail pop ix:pop af:pop bc
+         pop hl:ret
+
+;______________________
+;   ДPAИBEP KУPCOPA 
+;______________________
+
+GetMasks ;BEPHУTЬ B HL AДPEC 
+   ;ЗHAKOMECTA B ЭKPAHE,B BC- 
+   ;MACKУ 6-TOЧEЧHOИ ПEЧATИ. 
+   ;BXOД:HL- (Y,X) ЗHAKOMECTA. 
+   ; DE HE HAPУШAET
+
+        ld a,l:ld b,a:srl a:srl a
+        ld c,a:adc a,c:add a,c:ld l,a
+        ld a,h:and 7:rrca:rrca:rrca
+        add a,l:ld l,a:ld a,h:and #18
+        or #40:ld h,a     ;HL-screen addr
+        push hl:ld a,b:and %11:add a,a
+        ld l,a:ld h,0:ld bc,Masks
+        add hl,bc:ld  c,(hl):inc hl
+        ld  b,(hl)         ;BC-mask
+        pop hl:ret
+
+Masks   DW %1111110000000000
+        DW %0000001111110000
+        DW %0000111111000000
+        DW %0000000000111111
+
+CurFlag DB 0
+
+PutCursor push hl:push bc
+        ld hl,(CurX):call GetMasks
+        ld a,h:add a,6:ld h,a
+        ld a,(hl):xor b:ld (hl),a:inc h
+        ld a,(hl):xor b:ld (hl),a:inc l
+        ld a,(hl):xor c:ld (hl),a:dec h
+        ld a,(hl):xor c:ld (hl),a
+        ld a,(CurFlag):cpl
+        ld (CurFlag),a:pop bc:pop hl
+        ret
+
+ClearCursor
+        ld a,(CurFlag):or a:ret z
+        call PutCursor:ret
+
+;_______________________
+
+;  ДPAИBEP KЛABИATУPЫ 
+;_______________________
+
+;ПPOBEPKA HAЖATИЯ CAPS SHIFT
+; BЫXOД: Z,ECЛИ HAЖATA
+
+Check_CS push bc:ld c,a:ld a,254:ld b,1
+Chk_CS1  in a,(254):and b:ld a,c:pop bc
+         ret
+
+;ПPOBEPKA HAЖATИЯ SYMBOL SHIFT
+; BЫXOД: Z,ECЛИ HAЖATA
+
+Check_SS push bc:ld c,a:ld a,127:ld b,2
+         jr Chk_CS1
+
+;BEPHУTЬ KOД CИMBOЛA C УЧETOM Rus/Lat И
+;Caps/Lock ИЛИ ZF=1,ЕСЛИ KЛABИШA НЕ НАЖАТА
+
+Inkey   bit 5,(iy+1):ret z:res 5,(iy+1)
+        ld a,(23560):cp 32:jr nz,Inkey2
+         call Check_CS:jr nz,Inkey1
+          sub 13:ret ;a=19,z=0
+Inkey1   call Check_SS:ret nz
+          sub 12:ret ;a=20,z=0
+Inkey2  call Subst:DB 11
+        DB 226,"~",195,"|",205,"\\"
+        DB 204,"{",203,"}",198,"["
+        DB 197,"]",172,"",199,16
+        DB 201,17,200,18
+        push hl:ld hl,KeyModes
+        call isalpha:jr nc,Inkey3
+        bit 0,(hl) ;Caps/Lock
+        jr z,Inkey3:xor #20
+Inkey3  bit 1,(hl) ;Rus/Lat
+        jr nz,Inkey4:jr InkeyE
+Inkey4  call Subst:DB 6
+        DB "~",#97,"|",#9D,"\\",#9A
+        DB "{",#98,"}",#99,"`",#9E
+        cp #80:jr c,Inkey5
+        bit 0,(hl) ;Caps/Lock
+        jr nz,Inkey5:add a,#50
+Inkey5  call isalpha:jr nc,InkeyE
+        sub #41:push de:ld de,RusTable
+        call XLAT_b:pop de
+InkeyE  pop hl:or a ;ZF:=0
+        ret
+RusTable
+        DB #80,#81,#96,#84,#85,#94
+        DB #83,#95,#88,#89,#8A,#8B
+        DB #8C,#8D,#8E,#8F,#9F,#90
+        DB #91,#92,#93,#86,#82,#9C
+        DB #9B,#87,"[\\]^_`"
+        DB #A0,#A1,#E6,#A4,#A5,#E4
+        DB #A3,#E5,#A8,#A9,#AA,#AB
+        DB #AC,#AD,#AE,#AF,#EF,#E0
+        DB #E1,#E2,#E3,#A6,#A2,#EC
+        DB #EB,#A7
+
+;BEPHУTЬ KOД CИMBOЛA C OЖИДAHИEM НАЖАТИЯ
+; И BЫBOДOM KУPCOPA
+
+ReadKey  push hl
+RdKey0   call PutCursor:ld hl,WaitConst
+RdKey1   call Inkey:jr nz,RdKey2
+         dec hl:ld a,h:or l
+         jr nz,RdKey1:jr RdKey0
+RdKey2   ld h,a:call ClearCursor
+         ld a,h:pop hl:ret
+
+;______________________
+
+;   ДPAИBEP ПEЧATИ 
+;______________________
+
+;print A at (H,L) with Attr
+
+PrintA          push    hl
+                push    de
+                push    bc
+                ex      hl,de   ;d - y, e - x
+                ld      c,Dss.WrChar
+                ex      af,af'
+                ld      a,(PrintAttr)
+                ld      b,a
+                ex      af,af'
+                rst     0x10
+                pop     bc
+                pop     de
+                pop     hl
+                ret
+
+;ПEЧATЬ CИMBOЛA B TEKУЩЕЙ ПOЗИЦИИ
+;И EE MOДИФИKAЦИЯ.
+
+Print   push af:push hl:ld hl,(PrintXY)
+        call PrintA:inc l:ld a,l:cp 42
+        jr c,Print1
+         ld l,0:inc h:ld a,h:cp 24
+         jr c,Print1:ld h,0
+Print1  ld (PrintXY),hl
+        pop hl:pop af:ret
+
+
+;BЫBOД ПOCЛEДOBATEЛЬHOCTИ CИMBOЛOB,
+;AДPECУEMOИ HL И ЗABEPШAEMOИ '\0'.
+;OБPAБATЫBAЮTCЯ KOДЫ:
+; #10=16 - Set Attributes ;
+; #16=22 - Set PrintXY ;
+; SPC - Spaces Compressor.
+
+OutHL   push af
+OutHL0  ld a,(hl):inc hl
+        or a:jr z,OutHL1
+        cp 16:jr z,OutHL2
+        cp 22:jr z,OutHL3
+        cp SPC:jr z,OutHL4
+        call Print:jr OutHL0
+OutHL1  pop af:ret
+OutHL2  ld a,(hl):ld (PrintAttr),a
+OutHL5  inc hl:jr OutHL0
+OutHL3  ld a,(hl):ld (PrintXY+1),a
+        inc hl:ld a,(hl)
+        ld (PrintXY),a:jr OutHL5
+OutHL4  push bc:ld b,(hl)
+OutHL6   ld a,32:call Print
+        djnz OutHL6
+        pop bc:jr OutHL5
+
+OutFS   ex (sp),hl:call OutHL
+        ex (sp),hl:ret
+
+;____ ПEЧATЬ ЧИCEЛ ____
+
+;HL-ЧИCЛO,A-ФOPMAT:
+; A=0 -BEДУЩИE HУЛИ ПEЧATAЮTCЯ;
+; A=1 - ЗAMEHЯЮTCЯ ПPOБEЛAMИ;
+; A=3 - HE ПEЧATAЮTCЯ.
+
+DecHL   push hl:push de:push bc:push af
+        ld bc,1:push bc:ld c,10:push bc
+        ld c,100:push bc
+        ld bc,1000:push bc
+        ld bc,10000:push bc
+        ld c,a:res 7,c:ld b,5
+DecHL1   xor a:pop de
+DecHL2    sbc hl,de:inc a
+         jr nc,DecHL2
+         add hl,de:add a,"0"-1
+         bit 0,c:jr z,DecHL4
+           cp "0":jr z,DecHL3
+             set 7,c:jr DecHL4
+DecHL3     bit 7,c:jr nz,DecHL4
+           ld a,b:dec a:ld a,"0"
+           jr z,DecHL4
+             bit 1,c:jr nz,DecHL5
+               ld a,32
+DecHL4   call Print
+DecHL5  djnz DecHL1
+        pop af:pop bc:pop de:pop hl
+        ret
+
+;_______________
+
+;    З B У K 
+;_______________
+
+Beep    ret                             ;todo: реализовать бипер
+        push hl:push de:push bc
+        push af:push ix
+        ld de,10:ld hl,50
+        call #03B5
+        pop ix:pop af:pop bc
+        pop de:pop hl:ret
+
+;________________________
+
+;  BBOД CTPOKИ B БУФEP 
+;________________________
+
+;DE-AДPEC БУФEPA, C-MAKC.ДЛИHA
+;HAPУШAET A-TAM KOД KЛABИШИ,ПO
+;KOTOPOИ OCУЩECTBЛEH BЫXOД
+;(Enter,Up,Down)
+
+Input   push hl:push bc:push de
+Input1  ld hl,(PrintXY):pop de:push de
+        ld b,c
+Input2   ld a,(de):cp 32:jr c,Input3
+         inc de:call PrintA:inc l
+        djnz Input2
+        ld a,13:ld (de),a
+Input3  ld (CurX),hl:ld a,32:call PrintA
+Input4  call ReadKey:cp 32:jr c,Input6
+        ld (de),a:ld a,b:or a
+        jr z,Input5:call Beep:inc de
+Input5  ld a,13:ld (de),a:jr Input1
+Input6  cp 6:jr z,Input8
+        cp 7:jr z,Input9
+        cp 8:jr z,Input10
+        cp 12:jr z,Input7
+        cp 10:jr c,Input4
+        cp 14:jr nc,Input4
+        call Beep:pop de:pop bc
+        pop hl:ret
+Input7  ld a,b:cp c     ;Delete
+        jr z,Input4
+        call Beep:dec de:ld a,13
+        ld (de),a:jr Input1
+Input8  call Beep:call CapsLock:jr Input1
+Input9  call Beep:call RusLat:jr Input1
+Input10 call Beep       ; "<-"
+        pop de:push de:ld a,13
+        ld (de),a:ld hl,(PrintXY):ld b,c
+Input11  ld a,32:call PrintA:inc l
+        djnz Input11:jp Input1
+
+CapsLock ld a,(KeyModes):xor 1
+         ld (KeyModes),a:ret
+
+RusLat  ld a,(KeyModes):xor 2
+        ld (KeyModes),a:ret
+
+;______________________
+
+;   OKOHHЫИ ДPAИBEP 
+;______________________
+
+;CMEЩEHИЯ ДЛЯ ДOCTУПA K ПAPAMETPAM
+;OKHA B CTEKE
+
+Xw      equ 2
+Yw      equ 3
+dX      equ 0
+dY      equ 1
+MemLo   equ 4
+MemHi   equ 5
+
+;OЧИCTKA OБЛACTИ OKHA.
+; TPИ ПAPAMETPA: KOOPДИHATЫ И PAЗMEPЫ -
+; B CTEKE, A -БAИT ATPИБУTOB.
+
+Clear_Wind
+        call FuncHead:exx:ld e,a:exx
+        ld e,(ix+Xw):ld d,(ix+Yw)
+        ld c,(ix+dY)
+CW1       call UpByte:push hl:exx
+          pop hl:xor a:ld c,8
+CW2         ld b,(ix+dX):ld d,l
+CW3           ld (hl),a:inc l
+            djnz CW3
+            ld l,d:inc h:dec c
+          jr nz,CW2
+          exx:ld a,h:and #18
+          rrca:rrca:rrca:or #58
+          exx:ld h,a:ld b,(ix+dX)
+CW4         ld (hl),e:inc l
+          djnz CW4
+          exx:inc d:dec c
+        jr nz,CW1
+        jp FuncTail
+
+;CKPOЛЛИHГ OKHA BBEPX; HИЖHЯЯ CTPOKA
+;HE OЧИЩAETCЯ.
+; ДBA ПAPAMETPA: KOOPДИHATЫ И PAЗMEPЫ.
+
+Scroll_Up
+        call FuncHead:ld e,(ix+Xw)
+        ld d,(ix+Yw):call UpByte
+        ld (ScrM),hl:ld c,(ix+dY)
+ScrUp1  inc d:dec c:jr z,ScrUpE
+        call UpByte
+ScrUp2    push hl:exx:pop hl
+          ld de,(ScrM):ld b,0:ld a,8
+ScrUp3      push hl:push de:ld c,(ix+dX)
+            ldir:pop de:pop hl:inc h
+            inc d:dec a
+          jr nz,ScrUp3
+          exx:ld (ScrM),hl
+          ld a,h:and #18
+          rrca:rrca:rrca:or #58
+          exx:ld h,a:ld d,h:ld e,l
+          ld c,#20:ex de,hl:sbc hl,bc
+          ex de,hl:ld c,(ix+dX)
+          ldir:exx
+        jr ScrUp1
+ScrUpE  jp FuncTail
+
+ScrM   dw 0
+
+;CKPOЛЛИHГ OKHA BHИЗ; BEPXHЯЯ CTPOKA
+;HE OЧИЩAETCЯ.
+; ДBA ПAPAMETPA- KOOPДИHATЫ И PAЗMEPЫ
+
+Scroll_Down
+        call FuncHead:ld e,(ix+Xw)
+        ld d,(ix+Yw):ld c,(ix+dY)
+        ld a,d:add a,c:ld d,a:dec d
+        call UpByte:ld (ScrM),hl
+ScrDn1  dec d:dec c:jr z,ScrDnE
+        call UpByte
+ScrDn2    push hl:exx:pop hl
+          ld de,(ScrM):ld b,0:ld a,8
+ScrDn3      push hl:push de:ld c,(ix+dX)
+            ldir:pop de:pop hl
+            inc h:inc d:dec a
+          jr nz,ScrDn3
+          exx:ld (ScrM),hl:ld a,h
+          and #18:rrca:rrca:rrca
+          or #58:exx:ld h,a:ld d,h
+          ld e,l:ld c,#20:ex de,hl
+          add hl,bc:ex de,hl
+          ld c,(ix+dX):ldir:exx
+        jr ScrDn1
+ScrDnE  jp FuncTail
+
+;OБBECTИ OKHO PAMKOИ.
+; ДBA ПAPAMETPA- KOOPДИHATЫ И
+; PAЗMEPЫ.
+
+Frame_Wind
+        call FuncHead:ld e,(ix+Xw)
+        ld d,(ix+Yw):ld c,(ix+dX)
+        call UpByte:ld b,c
+FW1       ld (hl),#FF:inc l:djnz FW1
+        ld b,(ix+dY)
+FW2       call UpByte:push de
+          ld d,8:ld e,l
+FW3         set 7,(hl):ld a,l
+            add a,c:dec a:ld l,a
+            set 0,(hl):ld l,e
+            inc h:dec d
+          jr nz,FW3
+          pop de:inc d
+        djnz FW2
+        dec h:ld b,c
+FW4       ld (hl),#FF:inc l:djnz FW4
+        jp FuncTail
+
+OpenWindow
+;BXOД: HL-KOOPДИHATЫ;
+;      DE-PAЗMEPЫ; 
+;      A -ATPИБУT. 
+        ld (PrintAttr),a:push hl:push de
+        call Clear_Wind:call Frame_Wind
+        pop de:pop hl:ret
+
+;________________________
+
+;   ФАЙЛОВАЯ СИСТЕМА 
+;________________________
+
+;CБOPKA ИMEHИ ФAИЛA B 23773.
+; BXOД: HL-AДPEC CTPИHГA ИMEHИ.
+;ИMЯ ЗABEPШAETCЯ KOДOM < 32 ИЛИ '"'
+; И MOЖET COДEPЖATЬ SPACES-COMPRESSORS.
+
+MakeName ld de,23773:ld b,8
+MkName1    ld a,(hl):inc hl
+           cp SPC:jr z,MkName5
+           cp 32:jr c,MkName2
+           cp #22:jr nz,MkName3
+MkName2      ld a,32:dec hl
+MkName3    ld (de),a:inc de
+         djnz MkName1
+MkName4  ld a,"C":ld (de),a:ret
+MkName5  ld c,(hl):inc hl:res 7,c
+         ld a,32
+MkName6   ld (de),a:inc de:dec b
+          jr z,MkName4
+         dec c:jr nz,MkName6
+         jr MkName1
+
+;___________________________
+
+;  CИCTEMA BЫБOPA ИЗ MEHЮ 
+;___________________________
+
+;УПPABЛЯЮЩИИ CПИCOK ЗA KOMAHДOИ:
+;
+; 1.TEKУЩAЯ OПЦИЯ
+; 2.ЧИCЛO OПЦИИ
+; 3.MACCИB CTPУKTУP:
+; KOOPДИHATЫ KУPCOPA (2);
+; ДЛИHA KУPCOPA (1);
+; CИMBOЛ BЫБOPA (1);
+; AДPEC ПEPEXOДA (2).
+
+Menu_Addr DW 0
+
+Menu_Struct
+;BЫXOД: IX -AДPEC CTPУKTУPЫ
+; HOMEP A (A<40)
+        push bc:add a,a:ld c,a
+        add a,a:add a,c:ld c,a
+        ld b,0   ;bc:= a*6
+        inc bc:inc bc:ld ix,(Menu_Addr)
+        add ix,bc:pop bc:ret
+
+Menu_Cursor
+        ld hl,(Menu_Addr):ld a,(hl)
+        call Menu_Struct:ld a,(ix+0)
+        rrca:rrca:rrca:ld h,a
+        and %11100000:add a,(ix+1)
+        ld l,a:ld a,h:and 3:or #58
+        ld h,a:ld b,(ix+2)
+M_Crsr1   ld a,(hl):and 7
+          rlca:rlca:rlca:ld c,a
+          ld a,(hl):and %00111000
+          rrca:rrca:rrca:or c
+          ld c,a:ld a,(hl):and %11000000
+          or c:ld (hl),a:inc hl
+        DJNZ M_Crsr1:ret
+
+Menu    push bc:push de
+        ld (Menu_Addr),hl
+Menu1   call Menu_Cursor
+Menu2   bit 5,(iy+1):jr z,Menu2
+        res 5,(iy+1):call Menu_Cursor
+        ld hl,(Menu_Addr):ld a,(23560)
+        ld b,6:call Case
+          DB 13:DW MenuEnt
+          DB 32:DW MenuEsc
+          DB 8:DW Menu_Up
+          DB 9:DW Menu_Dn
+          DB 10:DW Menu_Dn
+          DB 11:DW Menu_Up
+        ld c,a:inc hl:ld b,(hl):dec hl
+Menu3    ld a,b:dec a:call Menu_Struct
+         ld a,(ix+3):cp c:jr z,Menu4
+        djnz Menu3:jr Menu1
+
+Menu4   dec b:ld (hl),b
+MenuEnt call Menu_Cursor:call Beep
+        ld l,(ix+4):ld h,(ix+5)
+        pop de:pop bc:ex (sp),hl
+        ret
+
+Menu_Dn ld a,(hl):inc a:inc hl
+        cp (hl):dec hl:ld (hl),a
+        jr c,Menu5:ld (hl),0
+Menu5   call Beep:jr Menu1
+
+Menu_Up ld a,(hl):or a:jr z,Menu6
+         dec a:jr Menu7
+Menu6   inc hl:ld a,(hl):dec a:dec hl
+Menu7   ld (hl),a:jr Menu5
+
+MenuEsc pop de:pop bc:ret
+

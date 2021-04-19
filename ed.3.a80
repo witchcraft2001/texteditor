@@ -1,0 +1,722 @@
+;________________________________
+
+;  ZX/IBM Text Editor ver.1.0
+;        _____________
+;       __           __
+;      __  MAIN MENU  __
+;________________________________
+
+Prt_HL_e        dec e
+                ret m
+                ld a,(hl)
+                inc hl
+                call Print
+                jr Prt_HL_e
+
+StoreScrn       ret             ;todo: разобраться для чего и реализовать под Спринтер
+                ld hl,#4000
+                ld de,FAT
+                ld bc,#1000
+                ldir
+                ld h,#58
+                ld b,2
+                ldir
+                ret
+
+RestoreScrn     ret
+                ld hl,FAT       ;todo: разобраться для чего и реализовать под Спринтер
+                ld de,#4000
+                ld bc,#1000
+                ldir
+                ld d,#58
+                ld b,2
+                ldir
+                ret
+
+;█ █ █ Пункт меню ~File~ █ █ █ 
+
+FILES   ld a,15:ld hl,#0101
+        ld de,#0A0A:call OpenWindow
+        call OutFS
+        DB 22,2,3,"Save"
+        DB 22,3,3,"Load"
+        DB 22,4,3,"Catalogue"
+        DB 22,5,3,"New"
+        DB 22,6,3,"save Block"
+        DB 22,7,3,"Merge"
+        DB 22,8,3,"Erase file"
+        DB 22,9,3,"Quit",0
+        ld hl,FileMenu
+        call Menu
+        jp MAIN2
+
+FileMenu DB 0,8
+         DB 2,2,8,"s":DW SaveText
+         DB 3,2,8,"l":DW LoadText
+         DB 4,2,8,"c":DW Catalogue
+         DB 5,2,8,"n":DW New
+         DB 6,2,8,"b":DW SaveBlock
+         DB 7,2,8,"m":DW Merge
+         DB 8,2,8,"e":DW Erase
+         DB 9,2,8,"q":DW Quit
+
+Quit    
+        ld sp,25198:ld hl,#1303
+        push hl:ld (23613),sp
+        res 4,(iy+1)
+        rst 8:DB 255
+
+New     call BegText:call RemoveBlock
+        ld (hl),13:inc hl
+        ld a,(EOLN_Fl):or a:jr z,New1
+         ld (hl),10:inc hl
+New1    ld (SPACE),hl
+        ld (hl),0:jp EDIT
+
+ ;H -Y-KOOPДИHATA OKHA,
+ ;DE-AДPEC БУФEPA ИMEHИ.
+
+InpFlName push de:ld de,#050E
+          ld l,2:ld a,%00010111
+          call OpenWindow
+          ld l,4:inc h:ld (PrintXY),hl
+          call OutFS
+          DB "Enter file name:",0
+          inc h:inc h:ld l,5
+          ld (PrintXY),hl
+          pop de:ld c,12:call Input
+          cp 13:scf:ret nz
+          push de:ex de,hl
+          call MakeName
+          pop hl:push hl
+          call IBM_MakeName
+          pop de:ld a,(de)
+          cp 32:ret
+
+FlNameBuff DS 13
+MergeBuff  DS 13
+EraseBuff  DS 13
+
+Erase    ld h,9:ld de,EraseBuff
+         call InpFlName:jp c,MAIN2
+         call Check_Disk:jp nc,IBM_Erase
+         ld c,#12:call 15635:jp MAIN2
+
+SaveText ld h,3:ld de,FlNameBuff
+         call InpFlName:jp c,MAIN2
+         ld hl,(TEXT):ld de,(SPACE)
+SvText1  ex de,hl:or a
+         sbc hl,de:ex de,hl
+         call Check_Disk:jp nc,IBM_Save
+         push hl:push de
+         ld c,#12:call 15635 ;Erase file
+         pop de:pop hl
+         ld c,#0B:call 15635 ;Save file
+         ld a,c:or b:jp nz,DiskFull
+         jp EDIT
+
+SaveBlock call BlockExist:jp nc,FILES
+          ld h,7:ld de,MergeBuff
+          call InpFlName:jp c,MAIN2
+          ld hl,(BlockBeg)
+          ld de,(BlockEnd)
+          jr SvText1
+
+Catalogue call Check_Disk:jp nc,IBM_Cat
+          ld a,2:ld c,7:call 15635
+Cat1       call Inkey
+          jr z,Cat1
+          jp MAIN2
+
+Merge    ld h,8:ld de,MergeBuff
+         call InpFlName:jp c,MAIN2
+         ld hl,(SPACE)
+         jr LoadTxt1
+
+LoadText ld h,4:ld de,FlNameBuff
+         call InpFlName:jp c,MAIN2
+         call BegText
+         ld hl,(TEXT)
+LoadTxt1 ld de,(RAMTOP)
+         ex de,hl:or a
+         sbc hl,de:ex de,hl
+         call Check_Disk:jp nc,IBM_Load
+         xor a:ld (23823),a
+         ld (23824),a:ld (23801),a
+         ld a,3:ld c,#0E   ;Load file
+         push hl:push de
+         call 15635
+         pop de:pop hl
+         ld a,c:or b:jr z,LoadTxt2
+FileNFnd  ld a,%00110000:ld hl,#0709
+          ld de,#030F:call OpenWindow
+          call OutFS
+          DB 22,8,13,"File not"
+          DB " found ...",0
+          jr Cat1
+LoadTxt2 push hl:ld hl,(23784)
+         ld a,h:or l:jr nz,$+4
+          inc hl:inc hl
+         call cp_hl_de:jr nc,LoadTxt3
+          ex de,hl
+LoadTxt3 pop hl:add hl,de
+         ld (SPACE),hl:ld (hl),0
+         ld a,(EOLN_Fl)
+         or a:jr z,LoadTxt4
+          dec hl:ld (hl),10
+LoadTxt4 dec hl:ld (hl),13
+         call RemoveBlock
+         jp EDIT
+
+;█ █ █ Арифметические операции █ █ █
+
+Multiply  EQU #30A9  ;HL:= HL*DE
+
+Divide   ;HL:= HL/DE, DE:= HL mod DE
+        push bc:ld b,d:ld c,e
+        ld de,0:ld a,#10
+Div1    add hl,hl:jr c,Div3:dec a
+        jr nz,Div1:pop bc:ret
+Div2     add hl,hl
+Div3     push af:rl e:rl d:ld a,e
+         sub c:ld a,d:sbc a,b:jp m,Div4
+         ld d,a:ld a,e:sub c:ld e,a:inc l
+Div4     pop af:dec a
+        jr nz,Div2
+        pop bc:ret
+
+;█ █ █ Файловая система IBM █ █ █
+
+IBM_FileName DS 11
+
+Claster_Size DB 0
+FAT_Num      DB 0
+FAT_Size     DB 0
+DIR_NumElm   DB 0
+DIR_Size     DB 0
+Disk_Format  DB 0
+Secs_On_Trk  DW 0
+First_Sector DW 0
+Num_Clasters DW 0
+
+I_Addr  DW 0
+I_Len   DW 0
+
+IBM_MakeName
+         ld de,IBM_FileName
+         ld a,32:ld b,11:push de
+I_MkNm1   ld (de),a:inc de
+         djnz I_MkNm1:pop de:ld b,8
+I_MkNm2   ld a,(hl):inc hl
+          cp 32:ret c
+          cp ".":jr z,I_MkNm4
+          call toupper
+          ld (de),a:inc de
+         djnz I_MkNm2
+I_MkNm3   ld a,(hl):inc hl
+          cp 32:ret c
+         cp ".":jr nz,I_MkNm3
+I_MkNm4  ld de,IBM_FileName+8:ld b,3
+I_MkNm5   ld a,(hl):inc hl
+          cp 32:ret c
+          call toupper
+          ld (de),a:inc de
+         djnz I_MkNm5
+         ret
+
+Drive_Mode DB 0
+
+_DOS    exx:pop hl:ld e,(hl):inc hl
+        ld d,(hl):inc hl:push hl
+        push de:exx:jp 15663
+
+Read_Secs xor a:jr Sectors
+
+Write_Secs ld a,#FF
+
+Sectors
+  ; чтение (A=0) или запись (A=#FF) 
+  ; B секторов по адресу HL,начиная с 
+  ; относительного сектора DE.
+         push bc:push de:push hl
+         ld (#5CCE),a:ld a,(23752)
+         ld (Drive_Mode),a
+         ld h,a:ld a,(Disk_Format)
+         cp #FC:jr c,Sec1
+          rlca:and 2:ld l,a:ld a,h
+          and %11111100:or l
+          ld (23752),a
+Sec1     ld hl,(Secs_On_Trk)
+         ex de,hl:call Divide
+         ld d,l:pop hl:push hl
+         call _Sectors
+         ld a,(Drive_Mode):ld (23752),a
+         pop hl:pop de:pop bc:ld a,b
+Sec2     inc h:inc h:inc de:djnz Sec2
+         ld b,a:ret
+
+_Sectors ld (#5D04),de:ld (#5D02),hl
+         push bc:call _DOS:DW #20F1
+         ld a,#FF:ld (#5D15),a
+         ld (#5D1F),a:pop bc
+         ld hl,#0201:ld (#5D1A),hl
+         ld (#5D1C),sp
+         dec sp:dec sp
+         call _DOS:DW #021D
+         ld hl,#01D3:push hl
+         ld hl,(#5D02):ld de,(#5D04)
+         ld (#5CF4),de:push bc:push hl
+         call _DOS:DW #1E36
+         pop hl:pop bc
+         xor a:or b:ret z
+_Sec1     push bc:push hl
+          call _DOS:DW #3F06
+          ld a,(#5CF4)
+          call _DOS:DW #3F02
+          ld a,(#5CF5)
+          call _DOS:DW #3E63
+          ld a,(#5CCE):or a
+          jr nz,_Sec2
+           call _DOS:DW #3F0E
+           jr _Sec3
+_Sec2     call _DOS:DW #3F0A
+_Sec3     pop hl:ld de,#0200
+          add hl,de:push hl
+          ld a,(Secs_On_Trk)
+          ld hl,#5CF4
+          inc (hl):cp (hl)
+          jr nz,_Sec4
+            ld (hl),0
+            inc hl:inc (hl)
+_Sec4     pop hl:pop bc
+         djnz _Sec1
+         jp 15663
+
+
+Cl_to_Sec push hl:dec de:dec de
+          ld a,(Claster_Size)
+          ld b,a:ld l,a:ld h,0
+          call Multiply
+          ld de,(First_Sector)
+          add hl,de:ex de,hl
+          pop hl:ret
+
+Read_Clast push bc:push de
+           call Cl_to_Sec
+           call Read_Secs
+           pop de:pop bc:ret
+
+Write_Clast push bc:push de
+            call Cl_to_Sec
+            call Write_Secs
+            pop de:pop bc:ret
+
+Read_FAT_DIR
+        ld de,1:ld hl,FAT
+        ld a,(FAT_Size):ld b,a
+        ld c,a:call Read_Secs
+        ld a,(FAT_Num):ld b,a:ld a,1
+        add a,c:djnz $-1:ld e,a
+        ld a,(DIR_Size):ld b,a
+        ld hl,DIR:call Read_Secs
+        ret
+
+Write_FAT_DIR
+        ld de,1:ld a,(FAT_Num):ld c,a
+Wr_F_D1  ld a,(FAT_Size):ld b,a
+         ld hl,FAT:call Write_Secs
+        dec c:jr nz,Wr_F_D1
+        ld a,(DIR_Size):ld b,a
+        ld hl,DIR:call Write_Secs
+        ret
+
+Check_Disk
+       push hl:push de
+       ld hl,FAT:ld de,0:ld bc,#0105
+       call 15635:ld hl,(FAT+11)
+       ld de,512:call cp_hl_de
+       scf:jr nz,Chk_D1
+       ld a,(FAT+13):ld (Claster_Size),a
+       ld a,(FAT+16):ld (FAT_Num),a
+       ld a,(FAT+22):ld (FAT_Size),a
+       ld a,(FAT+17):ld (DIR_NumElm),a
+       rrca:rrca:rrca:rrca
+       and %00001111:ld (DIR_Size),a
+       ld a,(FAT+21):ld (Disk_Format),a
+       ld hl,(FAT+24):ld (Secs_On_Trk),hl
+       ld hl,(FAT+19):push hl
+       call Read_FAT_DIR
+       ld (First_Sector),de
+       pop hl:or a:sbc hl,de
+       ld a,(Claster_Size):ld e,a
+       ld d,0:call Divide
+       ld (Num_Clasters),hl:or a
+Chk_D1 pop de:pop hl:ret
+
+;BC - Информация о кластере номер DE 
+
+Get_Clast push hl:push af
+          ld h,d:ld l,e
+          or a:rr h:rr l
+          add hl,de:ld bc,FAT
+          add hl,bc:ld c,(hl)
+          inc hl:ld b,(hl)
+          bit 0,e:jr z,GetCl2
+          ld l,4
+GetCl1     rr b:rr c:dec l
+          jr nz,GetCl1
+GetCl2    ld a,b:and #0F:ld b,a
+          pop af:pop hl
+          ret
+
+;Записать в FAT информацию BC о
+;кластере номер DE
+
+Put_Clast push hl:push de
+          push bc:push af
+          ld h,d:ld l,e
+          or a:rr h:rr l
+          add hl,de:ld a,b
+          and #0F:ld b,a
+          ld a,e:ld de,FAT
+          add hl,de
+          bit 0,a:jr nz,PutCl1
+          ld (hl),c:inc hl
+          ld a,(hl):and #F0
+          or b:ld (hl),a
+          jr PutCl3
+PutCl1    ld e,4:and a
+PutCl2     rl c:rl b:dec e
+          jr nz,PutCl2
+          ld a,(hl):and #0F
+          or c:ld (hl),a
+          inc hl:ld (hl),b
+PutCl3    pop af:pop bc
+          pop de:pop hl
+          ret
+
+Search_File
+        push de:push bc
+        ld hl,DIR:ld de,IBM_FileName
+        ld a,(DIR_NumElm):ld b,a
+Srch_F1  push de:push hl:ld c,11
+Srch_F2   ld a,(de):inc de:cp (hl)
+          inc hl:jr nz,Srch_F3
+         dec c:jr nz,Srch_F2
+         ld a,(hl):and %11000
+         jr nz,Srch_F3
+         pop hl:pop de:pop bc:pop de
+         scf:ret
+Srch_F3  pop hl:ld de,32:add hl,de:pop de
+        djnz Srch_F1
+        pop bc:pop de:or a:ret
+
+Erase_File
+        call Search_File:ret nc
+        ld (hl),#E5:ld de,26:add hl,de
+        ld e,(hl):inc hl:ld d,(hl)
+Era_F1   call Get_Clast:push bc
+         ld bc,0:call Put_Clast
+         pop de:ld a,d:cp #0F
+        jr c,Era_F1:ret
+
+Empty_Clast
+        push hl:push bc:ld de,2
+        ld hl,(Num_Clasters)
+Empty1   call Get_Clast:ld a,b:or c
+         jr z,Empty2:inc de:dec hl
+        ld a,h:or l:jr nz,Empty1
+        jp DiskFull
+Empty2  pop bc:pop hl:ret
+
+IBM_Erase  call Search_File:jp nc,MAIN2
+           call Erase_File
+           call Write_FAT_DIR:jp MAIN2
+
+IBM_Cat call I_Cat_Wind
+        ld a,(DIR_NumElm):ld b,a
+        ld c,0:ld hl,DIR
+I_Cat1   ld a,(hl):or a:jr z,I_CatQ
+         cp #E5:jr z,I_CatN
+         call I_Cat_XY:push hl
+         ld e,8:call Prt_HL_e
+         ld a,".":call Print
+         ld e,3:call Prt_HL_e
+         call OutFS:DB "  ",0
+         bit 3,(hl):jr nz,I_Cat4
+         bit 4,(hl):jr nz,I_Cat3
+          pop hl:push hl:ld de,30
+          add hl,de:ld a,(hl):or a
+          dec hl:jr nz,I_Cat2
+          ld a,(hl):dec hl:ld l,(hl)
+          ld h,a:ld a,3:call DecHL
+          jr I_Cat4
+I_Cat2     ld l,(hl):ld h,a
+           srl h:rr l:srl h:rr l
+           ld a,3:call DecHL
+           ld a,"K":call Print
+           jr I_Cat4
+I_Cat3   call OutFS:DB "SUBDIR",0
+I_Cat4   pop hl:inc c
+         ld a,c:cp 10:jr c,I_CatN
+          call Inkey:jr z,$-3
+          call I_Cat_Wind:ld c,0
+I_CatN   ld de,32:add hl,de
+        djnz I_Cat1
+I_CatQ  call I_Cat_XY:call OutFS
+        DB 32,16,%01010111
+        DB "End of Directory ",0
+        jp Cat1
+
+I_Cat_Wind push hl:ld a,15:ld hl,#0503
+           ld de,#0C14:call OpenWindow
+           pop hl:ret
+
+I_Cat_XY ld a,c:add a,6:ld d,a:ld e,6
+         ld (PrintXY),de:ret
+
+_HL     DW 0
+_DE     DW 0
+
+IBM_Load ld (_HL),hl:ld (_DE),de
+         ld (I_Addr),hl:call Search_File
+         jp nc,FileNFnd:ld bc,26
+         add hl,bc:ld c,(hl):inc hl
+         ld b,(hl):inc hl:ld a,(hl)
+         inc hl:ld h,(hl):ld l,a
+         ld (23784),hl:call cp_hl_de
+         jr c,$+3:ex de,hl:ld (I_Len),hl
+I_L1      ld d,b:ld e,c:ld a,d
+          cp #0F:jr nc,I_Le
+          ld hl,DIR:call Read_Clast
+          ld a,(Claster_Size):add a,a
+          ld b,a:ld c,0:ld hl,DIR
+I_L2       push hl:ld hl,(I_Len)
+           ld a,h:or l:dec hl
+           ld (I_Len),hl:pop hl
+           jr z,I_Le:ld a,(hl)
+           inc hl:push hl:ld hl,(I_Addr)
+           ld (hl),a:inc hl
+           ld (I_Addr),hl:pop hl
+           dec bc:ld a,b:or c
+          jr nz,I_L2
+         call Get_Clast:jr I_L1
+I_Le     ld hl,(_HL):ld de,(_DE)
+         jp LoadTxt2
+
+IBM_Save ld (I_Addr),hl:ld (I_Len),de
+         call Erase_File
+         ld hl,DIR:ld de,32
+         ld a,(DIR_NumElm):ld b,a
+I_S1      ld a,(hl):or a:jr z,I_S2
+          cp #E5:jr z,I_S2:add hl,de
+         djnz I_S1:jp DiskFull
+I_S2     ld de,IBM_FileName:ex de,hl
+         ld bc,11:ldir:ld h,d:ld l,e
+         inc de:ld (hl),0:ld c,20:ldir
+         dec hl:dec hl:ld de,(I_Len)
+         ld (hl),d:dec hl:ld (hl),e
+         dec hl:call Empty_Clast
+         ld (hl),d:dec hl:ld (hl),e
+         push de:ld hl,(I_Len)
+         ld a,(Claster_Size):add a,a
+         ld d,a:ld e,0:call Divide
+         ld b,l:ld a,d:or e:jr z,$+3
+         inc b:pop de:ld hl,(I_Addr)
+I_S3      call Write_Clast:push bc
+          ld bc,#0FFF:call Put_Clast
+          pop bc:dec b:jr z,I_Se:push bc
+          push de:call Empty_Clast
+          ld c,e:ld b,d:pop de
+          call Put_Clast:ld e,c:ld d,b
+          pop bc:jr I_S3
+I_Se     call Write_FAT_DIR:jp EDIT
+
+;█ █ █ Пункт меню ~Print~ █ █ █
+
+PRINT    ld a,15:ld hl,#0109
+         ld de,#050B:call OpenWindow
+         call OutFS
+         DB 22,2,14,"Print text"
+         DB 22,3,14,"print Block"
+         DB 22,4,14,"page Size",0
+         ld hl,PRINT_Menu
+         call Menu:jp MAIN2
+
+PRINT_Menu DB 0,3
+           DB 2,10,9,"p":DW PRT_Text
+           DB 3,10,9,"b":DW PRT_Block
+           DB 4,10,9,"s":DW Page_Size
+
+PageSize   DW 0
+
+Dr_Init   ld a,(Driver_Fl):or a
+          jr z,Dr_Init1
+           push hl:push de
+           call #5B01
+           pop de:pop hl
+           ret
+Dr_Init1  ld a,#98    ;Настройка адаптера 
+          out (#7F),a ;           ______
+          ld a,1      ;Установить STROBE 
+          out (#5F),a
+          ret
+
+Dr_PrtA  push hl:push de:push bc
+         ld hl,Driver_Fl:bit 0,(hl)
+         jr z,Dr_Prt1:call #5B03
+         pop bc:pop de:pop hl:ret nc
+         jp PRT_Error
+Dr_Prt1  out (#3F),a
+          ;Выставить байт на шину 
+Dr_Prt2  call #1F54    ;Проверка на BREAK
+         jr nc,PRT_Error  ;Выход по BREAK 
+         in a,(#5F)
+          ;Считать состояние принтера 
+         bit 5,a          ;Ошибка? 
+         jr z,PRT_Error   ;Да - выход 
+         bit 4,a          ;Готов? 
+         jr nz,Dr_Prt2    ;Нет- повторить 
+         xor a
+         out (#5F),a   ;Выдать строб 
+         inc a         ;A:=1
+         nop           ;Пауза
+         nop           ; ______
+         out (#5F),a   ; STROBE:=1
+         pop bc:pop de:pop hl:ret
+
+PRT_Error ld sp,(SaveSP)
+          ld a,%01010111:ld hl,#040C
+          ld de,#0510:call OpenWindow
+          call OutFS:DB 22,6,18
+          DB "Printer Error ...",0
+          jp Cat1
+
+PRT_Text   ld hl,(TEXT):ld de,(SPACE)
+           jr PRT_0
+
+PRT_Block  call BlockExist:jp nc,PRINT
+           ld hl,(BlockBeg)
+           ld de,(BlockEnd)
+PRT_0      call Dr_Init
+PRT_1       ld bc,(PageSize)
+PRT_2        call cp_hl_de:jp nc,MAIN2
+             ld a,(hl):inc hl
+             cp SPC:jr nz,PRT_4
+              push bc:ld b,(hl)
+              inc hl:res 7,b
+PRT_3          ld a,32:call Dr_PrtA
+              djnz PRT_3
+              pop bc:jr PRT_2
+PRT_4        cp 13:jr nz,PRT_5
+              ld a,(hl):cp 10
+              jr nz,$+3:inc hl
+              ld a,13:call Dr_PrtA
+              ld a,10:call Dr_PrtA
+              dec bc:ld a,b:or c
+              jr nz,PRT_2
+              call PRT_Wait:jr PRT_1
+PRT_5        call Dr_PrtA
+            jr PRT_2
+
+PRT_Wait   push hl:push de
+           call StoreScrn
+           ld a,%00010111:ld hl,#040C
+           ld de,#0411:call OpenWindow
+           call OutFS
+    DB 22,5,17,"Insert new page than"
+    DB 22,6,18, "press any key ...",0
+           call Inkey:jr z,$-3
+           call RestoreScrn
+           pop de:pop hl:ret
+
+Page_Size  ld a,%00010111:ld hl,#050C
+           ld de,#050E:call OpenWindow
+           call OutFS
+           DB 22,6,17,"Page Size: ",0
+           ld hl,(PageSize):ld a,3
+           call DecHL:call OutFS
+           DB 22,7,17,"Enter new value:"
+           DB 22,8,25,0
+           ld de,PgSizeBuff:ld c,5
+           call Input:cp 13:jp nz,MAIN2
+           ld a,(de):cp 32:jp c,MAIN2
+           ex de,hl:call MakeNumber
+           ld (PageSize),de:jp MAIN2
+
+PgSizeBuff DS 6
+
+;█ █ █ Пункт меню ~SetUp~ █ █ █ 
+
+SETUP   ld a,15:ld hl,#010F
+        ld de,#050A:call OpenWindow
+        call OutFS
+        DB 22,2,22,"EOLN code"
+        DB 22,3,22,"Compress"
+        DB 22,4,22,"Driver",0
+        ld hl,SetUpMenu
+        call Menu:jp MAIN2
+
+SetUpMenu DB 0,3
+          DB 2,16,8,"e":DW EOLN_Code
+          DB 3,16,8,"c":DW Compress
+          DB 4,16,8,"d":DW Driver
+
+Driver  ld a,%00010111:ld hl,#0512
+        ld de,#0408:call OpenWindow
+        call OutFS
+        DB 22,6,26,"Inside"
+        DB 22,7,26,"User's",0
+        ld hl,Driver_Fl:call Menu
+        jp MAIN2
+
+Driver_Fl DB 0,2
+          DB 6,19,6,"i":DW MAIN2
+          DB 7,19,6,"u":DW MAIN2
+
+EOLN_Code ld a,%00010111:ld hl,#0311
+          ld de,#0407:call OpenWindow
+          call OutFS
+          DB 22,4,25,"CR"
+          DB 22,5,25,"CR/LF",0
+          ld hl,EOLN_Fl:call Menu
+          jp MAIN2
+
+EOLN_Fl   DB 1,2
+          DB 4,18,5,0:DW MAIN2
+          DB 5,18,5,0:DW MAIN2
+
+Compress  ld a,%00010111:ld hl,#0412
+          ld de,#0406:call OpenWindow
+          call OutFS
+          DB 22,5,26,"OFF"
+          DB 22,6,26,"ON",0
+          ld hl,Comprs_Fl:call Menu
+          jp MAIN2
+
+Comprs_Fl DB 0,2
+          DB 5,19,4,0:DW MAIN2
+          DB 6,19,4,0:DW MAIN2
+
+
+;█ █ █ Пункт меню ~Info~ █ █ █
+
+INFO    ld a,15:ld hl,#010F
+        ld de,#090F:call OpenWindow
+        call OutFS
+        DB 22,2,21,"ZX/IBM Text Editor"
+        DB 22,3,21,"ver.1.0 (Oct.1993)"
+        DB 22,4,21,"Wr. by Hohlov Oleg"
+        DB 22,5,21,"Tel.(0572)68-21-96"
+        DB 22,7,21,"Text Length: ",0
+        ld hl,(SPACE):ld de,(TEXT)
+        or a:sbc hl,de:ld a,3:call DecHL
+        call OutFS
+        DB 22,8,21,"Free Space:  ",0
+        ld hl,(RAMTOP):ld de,(SPACE)
+        or a:sbc hl,de:call DecHL
+        jp Cat1
+
+;█ █ *** The END! *** (October 1993) █ █ 
+
+
