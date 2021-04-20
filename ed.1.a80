@@ -8,9 +8,9 @@
 
         jp START
 
-TEXT    DW END+1
-SPACE   DW END+2
-RAMTOP  DW #E7FF
+TEXT    DW StartText                ;Начало текста
+SPACE   DW EndText-1                ;конец текста
+RAMTOP  DW #E7FF                ;верхняя граница текста
 FAT     EQU #E800
 DIR     EQU FAT+2560
 SaveSP  DW 0

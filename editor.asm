@@ -27,6 +27,12 @@ EntryExec
 
 ; Font6   insert "Bold.fnt"
 
-END     DB 13,13,0
+END
+        DB 13
+StartText        
+        DB "Hello friends! This is ported version of ZX/IBM Editor",13
+        DB "Original version by Hohlov Oleg, (c) 1993.",13
+        DB "Ported by Mikhaltchenkov Dmitry, (c) 2021.",13,13,0
+EndText
 ExeEnd
         savebin	"editor.exe",EXEhead,ExeEnd-EXEhead

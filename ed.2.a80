@@ -92,11 +92,16 @@ SLnAdr3 ld (LineNum),de:ld (LineAddr),hl
         ld b,15:call SetBegLine
         pop bc:pop de:pop hl:ret
 
-LIST    ld bc,#1602:ld hl,(BegLine)
-LIST1     call SetLnAttr:ld (LineAttr),a
-          call Unpack
-          ld a,c:call PrintLine:inc c
-        djnz LIST1:ret
+LIST    ld bc,#1602
+        ld hl,(BegLine)
+LIST1   call SetLnAttr
+        ld (LineAttr),a
+        call Unpack
+        ld a,c
+        call PrintLine
+        inc c
+        djnz LIST1
+        ret
 
 ;BЫXOД: A - ATPИБУT CTPOKИ HL,
 ;CF=1 -CTPOKA ПPИHAДЛEЖИT БЛOKУ 
@@ -138,37 +143,35 @@ Unpk4   inc de:dec a:jr z,Unpk0
 ;ПEЧATЬ CTPOKИ ИЗ БУФEPA PACПAKOBЩИKA.
 ; BXOД: a-HOMEP CTPOKИ HA ЭKPAHE
 
-PrintLine       push    hl
-                push    bc
-          push  af
-          ld    hl,LineBuff
-          ld    a,(BegCol)
-          ld    c,a
-          ld    b,0
-          ld    e,b
-          add   hl,bc
-          ld    a,(LineAttr)
-          ld    b,a
-          ld    c,Dss.WrChar
-          pop   af
-          ld    d,a
-          
-.loop     push    af
-          push    de
-          push    bc
-          push    hl
-          ld      a,(hl)
-          rst     0x10
-          pop     hl
-          pop     bc
-          pop     de
-          pop     af
-          inc     hl
-          inc     e
-          dec     a
-          jr      nz,.loop
-          pop     bc
-          pop     hl
+PrintLine push hl
+          push bc
+          ld d,a
+          ld hl,LineBuff
+          ld a,(BegCol)
+          ld c,a
+          ld b,0
+          ld e,b
+          add hl,bc
+          ld a,(LineAttr)
+          ld b,a
+          ld c,Dss.WrChar
+          ld a,42                    ;ширина экрана
+.loop     push af
+          push de
+          push bc
+          push hl
+          ld a,(hl)
+          rst 0x10
+          pop hl
+          pop bc
+          pop de
+          pop af
+          inc hl
+          inc e
+          dec a
+          jr nz,.loop
+          pop bc
+          pop hl
           ret
 
 PackBuff push hl:push bc
@@ -340,7 +343,7 @@ PrintEdInfo
 ;____________________
 
 START           ld (SaveSP),sp
-                LD BC,3 * 256 + Dss.GetMem
+                LD BC,2 * 256 + Dss.GetMem
                 RST #10			; need 3 memory pages
                 JR NC,.next
                 LD HL,.no_memory_str
@@ -354,8 +357,8 @@ START           ld (SaveSP),sp
 		LD C,Bios.Emm_Fn5
 		RST #08
 		LD A,(EditorPages.Pg0)		; set pages from 0x8000
-		OUT (EmmWin.P2), A
-                LD A,(EditorPages.Pg1)		; set pages from 0xC000
+		; OUT (EmmWin.P2), A
+                ; LD A,(EditorPages.Pg1)		; set pages from 0xC000
 		OUT (EmmWin.P3), A
 ;        ld a,7:ld (23693),a
 ;        ld a,1:out (254),a
@@ -792,5 +795,5 @@ Rplc8   call Pack:jr Rplc3
 EditorPages
 .Pg0		db	#00
 .Pg1		db	#00
-.Pg2		db	#00
+; .Pg2		db	#00
 hMem            db      #00

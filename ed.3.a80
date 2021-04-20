@@ -15,7 +15,7 @@ Prt_HL_e        dec e
 
 StoreScrn       ld de,0
                 ld hl,#2050
-                ld a,(EditorPages.Pg2)
+                ld a,(EditorPages.Pg1)
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinCopy
@@ -32,7 +32,7 @@ StoreScrn       ld de,0
 
 RestoreScrn     ld de,0
                 ld hl,#2050
-                ld a,(EditorPages.Pg2)
+                ld a,(EditorPages.Pg1)
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinRest
