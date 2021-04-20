@@ -716,7 +716,8 @@ Menu_Struct
         ret
 
 ;Окраска пункта меню
-Menu_Cursor
+Menu_Cursor     push de
+                push af
                 ld hl,(Menu_Addr)
                 ld a,(hl)
                 call Menu_Struct
@@ -750,63 +751,31 @@ Menu_Cursor
                 inc e
                 pop bc
                 djnz .loop
+                pop af
+                pop de
                 ret
-                
 
-
-;         rrca:rrca:rrca
-;         ld h,a
-;         and %11100000
-;         add a,(ix+1)
-;         ld l,a
-;         ld a,h
-;         and 3
-;         or #58
-;         ld h,a
-;         ld b,(ix+2)
-; M_Crsr1   ld a,(hl)
-;         and 7
-;           rlca:rlca:rlca
-;           ld c,a
-;           ld a,(hl)
-;           and %00111000
-;           rrca:rrca:rrca
-;           or c
-;           ld c,a
-;           ld a,(hl)
-;           and %11000000
-;           or c
-;           ld (hl),a
-;           inc hl
-;         DJNZ M_Crsr1
-;         ret
-
-Menu    push bc:push de
-        ld (Menu_Addr),hl
+Menu            push bc
+                push de
+                ld (Menu_Addr),hl
 Menu1           call Menu_Cursor
 Menu2           ld c,Dss.WaitKey
                 rst #10
-                push af
-                ; bit 5,(iy+1)
-                ; jr z,Menu2
-                ; res 5,(iy+1)
                 call Menu_Cursor
-                pop af
+                ld c,a
                 ld hl,(Menu_Addr)
-        ;ld a,(23560)
-                ; ld      c,Dss.ScanKey
-                ; rst     #10
-                ; jr      z,.nokey
-                ld b,6
+                ld b,2
                 call Case
-                DB 13:DW MenuEnt
-                DB 32:DW MenuEsc
-                DB 8:DW Menu_Up
-                DB 9:DW Menu_Dn
-                DB 10:DW Menu_Dn
-                DB 11:DW Menu_Up
-.nokey          ld c,a
-                inc hl
+                DB 13:DW MenuEnt        ;Enter
+                DB #1b:DW MenuEsc       ;Esc
+                ld a,d
+                ld b,4
+                call Case
+                DB #58:DW Menu_Up       ;Cursor Up
+                DB #52:DW Menu_Dn       ;Cursor Dn
+                DB #56:DW Menu_Dn       ;>
+                DB #54:DW Menu_Up       ;<
+.nokey          inc hl
                 ld b,(hl)
                 dec hl
 Menu3           ld a,b
