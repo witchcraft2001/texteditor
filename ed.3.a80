@@ -13,30 +13,44 @@ Prt_HL_e        dec e
                 call Print
                 jr Prt_HL_e
 
-StoreScrn       ret             ;todo: разобраться для чего и реализовать под Спринтер
-                ld hl,#4000
-                ld de,FAT
-                ld bc,#1000
-                ldir
-                ld h,#58
-                ld b,2
-                ldir
-                ret
+StoreScrn       ld de,0
+                ld hl,#2050
+                ld a,(EditorPages.Pg2)
+                ld b,a
+                ld ix,0
+                ld c,Dss.WinCopy
+                rst #10
+                ret             ;todo: разобраться для чего и реализовать под Спринтер
+                ; ld hl,#4000
+                ; ld de,FAT
+                ; ld bc,#1000
+                ; ldir
+                ; ld h,#58
+                ; ld b,2
+                ; ldir
+                ; ret
 
-RestoreScrn     ret
-                ld hl,FAT       ;todo: разобраться для чего и реализовать под Спринтер
-                ld de,#4000
-                ld bc,#1000
-                ldir
-                ld d,#58
-                ld b,2
-                ldir
+RestoreScrn     ld de,0
+                ld hl,#2050
+                ld a,(EditorPages.Pg2)
+                ld b,a
+                ld ix,0
+                ld c,Dss.WinRest
+                rst #10
                 ret
+                ; ld hl,FAT       ;todo: разобраться для чего и реализовать под Спринтер
+                ; ld de,#4000
+                ; ld bc,#1000
+                ; ldir
+                ; ld d,#58
+                ; ld b,2
+                ; ldir
+                ; ret
 
 ;█ █ █ Пункт меню ~File~ █ █ █ 
 
 FILES   ld a,15:ld hl,#0101
-        ld de,#0A0A:call OpenWindow
+        ld de,#0A0E:call OpenWindow
         call OutFS
         DB 22,2,3,"Save"
         DB 22,3,3,"Load"
@@ -51,14 +65,14 @@ FILES   ld a,15:ld hl,#0101
         jp MAIN2
 
 FileMenu DB 0,8
-         DB 2,2,8,"s":DW SaveText
-         DB 3,2,8,"l":DW LoadText
-         DB 4,2,8,"c":DW Catalogue
-         DB 5,2,8,"n":DW New
-         DB 6,2,8,"b":DW SaveBlock
-         DB 7,2,8,"m":DW Merge
-         DB 8,2,8,"e":DW Erase
-         DB 9,2,8,"q":DW Quit
+         DB 2,2,12,"s":DW SaveText
+         DB 3,2,12,"l":DW LoadText
+         DB 4,2,12,"c":DW Catalogue
+         DB 5,2,12,"n":DW New
+         DB 6,2,12,"b":DW SaveBlock
+         DB 7,2,12,"m":DW Merge
+         DB 8,2,12,"e":DW Erase
+         DB 9,2,12,"q":DW Quit
 
 Quit    
         ld sp,25198:ld hl,#1303

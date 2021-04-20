@@ -6,6 +6,9 @@
 
         org 25200
         include "dss_equ.asm"
+	include "bios_equ.asm"
+	include "sp_equ.asm"	
+	
 EXEhead
                 db	"EXE"
 		db	0			; +3

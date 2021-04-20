@@ -1,4 +1,4 @@
-__________________
+;__________________________________
 ;
 ; ZX / IBM Text EDITOR  ver.1.0
 ;          ____________
@@ -339,7 +339,24 @@ PrintEdInfo
 ;     PEДAKTOP
 ;____________________
 
-START  ld (SaveSP),sp
+START           ld (SaveSP),sp
+                LD BC,3 * 256 + Dss.GetMem
+                RST #10			; need 3 memory pages
+                JR NC,.next
+                LD HL,.no_memory_str
+		LD C,Dss.PChars
+		RST #10
+                LD BC,0xFF + Dss.Exit
+		RST #10
+.no_memory_str  db	"Not enough memory to load program.", 0x0D, 0x0A, 0x00
+.next           LD (hMem),A		; memory handle
+		LD HL,EditorPages
+		LD C,Bios.Emm_Fn5
+		RST #08
+		LD A,(EditorPages.Pg0)		; set pages from 0x8000
+		OUT (EmmWin.P2), A
+                LD A,(EditorPages.Pg1)		; set pages from 0xC000
+		OUT (EmmWin.P3), A
 ;        ld a,7:ld (23693),a
 ;        ld a,1:out (254),a
 ;        ld a,%00001111:ld (23624),a
@@ -350,11 +367,11 @@ MAIN2  call PrintEdInfo:call LIST
 MAIN3  ld hl,MainMenu:call Menu:jr EDIT
 
 MainMenu DB 1,5
-         DB 0,1,5,"f":DW FILES
-         DB 0,6,6,"e":DW EDIT
-         DB 0,12,5,"p":DW PRINT
-         DB 0,18,6,"s":DW SETUP
-         DB 0,24,5,"i":DW INFO
+         DB 0,2,6,"f":DW FILES
+         DB 0,9,6,"e":DW EDIT
+         DB 0,16,7,"p":DW PRINT
+         DB 0,24,7,"s":DW SETUP
+         DB 0,32,6,"i":DW INFO
 
 EDIT   call PrintEdInfo:scf
 EDIT1  jr nc,EDIT3:call LIST
@@ -772,4 +789,8 @@ Rplc7    ld a,(hl):cp 13:jr z,Rplc8
         jr Rplc7
 Rplc8   call Pack:jr Rplc3
 
-
+EditorPages
+.Pg0		db	#00
+.Pg1		db	#00
+.Pg2		db	#00
+hMem            db      #00

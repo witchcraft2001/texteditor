@@ -127,10 +127,16 @@ MoveM1  add hl,bc:dec hl
 MoveM2  pop hl:ret
 
 ;HL- AДPEC ЗHAKOMECTA DE 
-
-UpByte  ld a,d:and 7:rrca:rrca:rrca
-        add a,e:ld l,a:ld a,d:and #18
-        or #40:ld h,a:ret
+UpByte  ld a,d
+        and 7
+        rrca:rrca:rrca
+        add a,e
+        ld l,a
+        ld a,d
+        and #18
+        or #40
+        ld h,a
+        ret
 
 ; ШAПKA ФУHKЦИИ,ПOЛУЧAЮЩEИ
 ; ПAPAMETPЫ ЧEPEЗ CTEK.
@@ -430,28 +436,19 @@ dY      equ 1
 MemLo   equ 4
 MemHi   equ 5
 
+Clear_Wind
 ;OЧИCTKA OБЛACTИ OKHA.
 ; TPИ ПAPAMETPA: KOOPДИHATЫ И PAЗMEPЫ -
 ; B CTEKE, A -БAИT ATPИБУTOB.
-
-Clear_Wind
-        call FuncHead:exx:ld e,a:exx
-        ld e,(ix+Xw):ld d,(ix+Yw)
-        ld c,(ix+dY)
-CW1       call UpByte:push hl:exx
-          pop hl:xor a:ld c,8
-CW2         ld b,(ix+dX):ld d,l
-CW3           ld (hl),a:inc l
-            djnz CW3
-            ld l,d:inc h:dec c
-          jr nz,CW2
-          exx:ld a,h:and #18
-          rrca:rrca:rrca:or #58
-          exx:ld h,a:ld b,(ix+dX)
-CW4         ld (hl),e:inc l
-          djnz CW4
-          exx:inc d:dec c
-        jr nz,CW1
+        call FuncHead
+        ld b,a
+        ld e,(ix+Xw)
+        ld d,(ix+Yw)
+        ld l,(ix+dX)
+        ld h,(ix+dY)
+        ld a,#20
+        ld c,Dss.Clear
+        rst #10
         jp FuncTail
 
 ;CKPOЛЛИHГ OKHA BBEPX; HИЖHЯЯ CTPOKA
@@ -508,28 +505,147 @@ ScrDn3      push hl:push de:ld c,(ix+dX)
         jr ScrDn1
 ScrDnE  jp FuncTail
 
+Frame_Wind
 ;OБBECTИ OKHO PAMKOИ.
 ; ДBA ПAPAMETPA- KOOPДИHATЫ И
 ; PAЗMEPЫ.
-
-Frame_Wind
-        call FuncHead:ld e,(ix+Xw)
-        ld d,(ix+Yw):ld c,(ix+dX)
-        call UpByte:ld b,c
-FW1       ld (hl),#FF:inc l:djnz FW1
-        ld b,(ix+dY)
-FW2       call UpByte:push de
-          ld d,8:ld e,l
-FW3         set 7,(hl):ld a,l
-            add a,c:dec a:ld l,a
-            set 0,(hl):ld l,e
-            inc h:dec d
-          jr nz,FW3
-          pop de:inc d
-        djnz FW2
-        dec h:ld b,c
-FW4       ld (hl),#FF:inc l:djnz FW4
+        call FuncHead
+        call OrdinaryFrame
         jp FuncTail
+
+OrdinaryFrame
+	LD	HL,FrameType1
+	JR	Frame1
+DoubleFrame        
+	LD	HL,FrameType2
+Frame1	LD	D,(IX+Yw)
+	LD	E,(IX+Xw)
+        ld      a,(PrintAttr)
+	LD	B,a
+	PUSH	DE
+	PUSH	HL
+	LD	A,(HL)
+	LD	C,Dss.WrChar
+        PUSH    BC
+	RST	DssRst
+        POP     BC
+	POP	HL
+	POP	DE
+	LD	A,(IX+dX)
+	DEC	A
+	ADD	A,E
+	LD	E,A
+	INC	HL
+	LD	A,(HL)
+	PUSH	DE
+	PUSH	HL
+        PUSH    BC
+	RST	DssRst
+        POP     BC
+	POP	HL
+	POP	DE
+	LD	A,(IX+dY)
+	DEC	A
+	ADD	A,D
+	LD	D,A
+	INC	HL
+	LD	A,(HL)
+	PUSH	DE
+	PUSH	HL
+        PUSH    BC
+	RST	DssRst
+        POP     BC
+	POP	HL
+	POP	DE
+	LD	E,(IX+Xw)
+	INC	HL
+	LD	A,(HL)
+        EX      AF,AF'
+	INC	HL
+	LD	A,(HL)
+	LD	(FramHor),A
+        INC     HL
+	LD	A,(HL)
+	LD	(FramVer),A
+        EX      AF,AF'
+	LD	C,Dss.WrChar
+        PUSH    BC
+	RST	DssRst
+        POP     BC
+;HORIZONTAL LINES
+	LD	H,(IX+Yw)
+	LD	A,(IX+dY)
+	DEC	A
+	ADD 	A,H
+	LD 	L,A
+	LD	A,(IX+dX)
+	SUB	2
+	LD	E,(IX+Xw)
+	INC	E
+        LD	C,Dss.WrChar
+FramHl1	PUSH	AF
+	PUSH	HL
+	LD	D,H
+	LD	A,0
+FramHor	EQU	$-1
+	PUSH	AF
+        PUSH    BC
+        push    hl
+	RST	DssRst
+        pop     hl
+        POP     BC
+	POP	AF
+	LD	D,L
+        PUSH    BC
+	RST	DssRst
+        POP     BC
+	POP	HL
+	POP	AF
+	INC	E
+	DEC	A
+	JR	NZ,FramHl1
+;VERTICAL LINES
+	LD	H,(IX+Xw)
+	LD	A,(IX+dX)
+	DEC	A
+	ADD 	A,H
+	LD 	L,A
+	ld      a,(PrintAttr)
+	LD	B,a
+	LD	A,(IX+dY)
+	SUB	2
+	LD	C,Dss.WrChar
+	LD	D,(IX+Yw)
+	INC	D
+FramVl1	PUSH	AF
+	PUSH	HL
+	LD	E,H
+	LD	A,0
+FramVer	EQU	$-1
+	PUSH	AF
+        PUSH    BC
+        PUSH    HL
+	RST	DssRst
+        POP     HL
+        POP     BC
+	POP	AF
+	LD	E,L
+        PUSH    BC
+	RST	DssRst
+        POP     BC
+	POP	HL
+	POP	AF
+	INC	D
+	DEC	A
+	JR	NZ,FramVl1
+	RET
+
+;Ordinary frame
+FrameType1
+	DB	#DA,#BF,#D9,#C0,#C4,#B3
+;Double frame
+FrameType2
+	DB	#C9,#BB,#BC,#C8,#CD,#BA
 
 OpenWindow
 ;BXOД: HL-KOOPДИHATЫ;
@@ -601,11 +717,43 @@ Menu_Struct
 
 ;Окраска пункта меню
 Menu_Cursor
-        ret             ;todo: реализовать окраску пункта меню
-;         ld hl,(Menu_Addr)
-;         ld a,(hl)
-;         call Menu_Struct
-;         ld a,(ix+0)
+                ld hl,(Menu_Addr)
+                ld a,(hl)
+                call Menu_Struct
+                ld b,(ix+2)
+                ld d,(ix+0)
+                ld e,(ix+1)
+.loop           push bc
+                push de
+                push de
+                ld c,Dss.RdChar
+                rst #10
+                ex af,af'
+                ld a,b
+                and 7
+                rlca:rlca:rlca:rlca
+                ld c,a
+                ld a,b
+                and %01110000
+                rrca:rrca:rrca:rrca
+                or c
+                ld c,a
+                ld a,b
+                and %10001000
+                or c
+                ld b,a
+                pop de
+                ld c,Dss.WrChar
+                ex af,af'
+                rst #10
+                pop de
+                inc e
+                pop bc
+                djnz .loop
+                ret
+                
+
+
 ;         rrca:rrca:rrca
 ;         ld h,a
 ;         and %11100000
