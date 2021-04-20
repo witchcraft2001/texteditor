@@ -69,11 +69,17 @@ SetNum1   push hl:or a:sbc hl,bc:pop hl
 SetNum2  ld (LineNum),de
 SetNum3  pop bc:pop hl:ret
 
-BegText  ld hl,(TEXT):ld (LineAddr),hl
-         ld (BegLine),hl:xor a
-         ld h,a:ld l,a:ld (LineNum),hl
-         ld (BegCol),a:ld (CurCol),a
-         ret
+BegText
+        ld hl,(TEXT)
+        ld (LineAddr),hl
+        ld (BegLine),hl
+        xor a
+        ld h,a
+        ld l,a
+        ld (LineNum),hl
+        ld (BegCol),a
+        ld (CurCol),a
+        ret
 
 SetBegLine push de:push hl
            ld hl,(LineAddr)

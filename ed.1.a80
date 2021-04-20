@@ -10,9 +10,9 @@
 
 TEXT    DW StartText                ;Начало текста
 SPACE   DW EndText-1                ;конец текста
-RAMTOP  DW #E7FF                ;верхняя граница текста
-FAT     EQU #E800
-DIR     EQU FAT+2560
+RAMTOP  DW #FFFF                ;верхняя граница текста
+; FAT     EQU #E800
+; DIR     EQU FAT+2560
 SaveSP  DW 0
 
 BegLine   DW END+1
@@ -623,21 +623,21 @@ OpenWindow
 ;ИMЯ ЗABEPШAETCЯ KOДOM < 32 ИЛИ '"'
 ; И MOЖET COДEPЖATЬ SPACES-COMPRESSORS.
 
-MakeName ld de,23773:ld b,8
-MkName1    ld a,(hl):inc hl
-           cp SPC:jr z,MkName5
-           cp 32:jr c,MkName2
-           cp #22:jr nz,MkName3
-MkName2      ld a,32:dec hl
-MkName3    ld (de),a:inc de
-         djnz MkName1
-MkName4  ld a,"C":ld (de),a:ret
-MkName5  ld c,(hl):inc hl:res 7,c
-         ld a,32
-MkName6   ld (de),a:inc de:dec b
-          jr z,MkName4
-         dec c:jr nz,MkName6
-         jr MkName1
+; MakeName ld de,23773:ld b,8
+; MkName1    ld a,(hl):inc hl
+;            cp SPC:jr z,MkName5
+;            cp 32:jr c,MkName2
+;            cp #22:jr nz,MkName3
+; MkName2      ld a,32:dec hl
+; MkName3    ld (de),a:inc de
+;          djnz MkName1
+; MkName4  ld a,"C":ld (de),a:ret
+; MkName5  ld c,(hl):inc hl:res 7,c
+;          ld a,32
+; MkName6   ld (de),a:inc de:dec b
+;           jr z,MkName4
+;          dec c:jr nz,MkName6
+;          jr MkName1
 
 ;___________________________
 
