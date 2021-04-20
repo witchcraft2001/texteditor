@@ -349,6 +349,8 @@ PrintEdInfo
 ;____________________
 
 START           ld (SaveSP),sp
+                ld a,#c0                ;Set the Y-Port value upper than 192
+                out (#89),a
                 LD BC,2 * 256 + Dss.GetMem
                 RST #10			; need 3 memory pages
                 JR NC,.next

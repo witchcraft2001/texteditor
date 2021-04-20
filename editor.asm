@@ -4,7 +4,7 @@
 ;        ___           ___
 ;        ___  Project  ___
 
-        org 25200
+        org #4100
         include "dss_equ.asm"
 	include "bios_equ.asm"
 	include "sp_equ.asm"	
@@ -19,7 +19,7 @@ EXEhead
 		dw	0			; +14
 		dw	EntryExec		; +16
 		dw	EntryExec
-		dw	25200 - 1
+		dw	#4100
 EntryExec
         include "ed.1.a80"
         include "ed.2.a80"
