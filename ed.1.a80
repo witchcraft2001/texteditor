@@ -102,23 +102,38 @@ XLAT_w  ld l,a
 
 ;ПOДПPOГPAMMЫ KЛACCA ЛИTEPЫ 
 
-isupper cp "A":ccf:ret nc
-        cp "Z"+1:ret
+isupper cp "A"
+        ccf
+        ret nc
+        cp "Z"+1
+        ret
 
-islower cp "a":ccf:ret nc
-        cp "z"+1:ret
+islower cp "a"
+        ccf
+        ret nc
+        cp "z"+1
+        ret
 
-isalpha call isupper:ret c
-        call islower:ret
+isalpha call isupper
+        ret c
+        call islower
+        ret
 
-isdigit cp "0":ccf:ret nc
-        cp "9"+1:ret
+isdigit cp "0"
+        ccf
+        ret nc
+        cp "9"+1
+        ret
 
-toupper call islower:ret nc
-        sub #20:ret
+toupper call islower
+        ret nc
+        sub #20
+        ret
 
-tolower call isupper:ret nc
-        add a,#20:ret
+tolower call isupper
+        ret nc
+        add a,#20
+        ret
 
 ;APИФMETИЧECKИE ПPOЦEДУPЫ 
 

@@ -710,61 +710,93 @@ MkNum1   ld a,(hl):call isdigit:ret nc
 COMMAND call OutFS
         DB 22,1,2,16,%00111000
         DB " Command:",SPC,12,0
-        ld hl,#010B:ld (PrintXY),hl
-        ld (CurX),hl:call ReadKey
-        call Beep:ld a,(23560)
-        call isdigit:jr nc,CMND1
-          ld de,DecCodeBuff:ld (de),a
-          inc de:ld a,13:ld (de),a
-          dec de:ld c,3:call Input
-          ex de,hl:ld a,(hl):call isdigit
-          ld a,32:jr nc,CMND1
-          call MakeNumber:pop bc
-          call PrintKeyModes:ld a,e
-          jp EDIT5
-CMND1   call Pack:ld de,CMND5:push de
-        call toupper:ld b,13:call Case
-         DB "B":DW MarkBeg
-         DB "E":DW MarkEnd
-         DB "C":DW CopyBlock
-         DB "D":DW DelBlock
-         DB "M":DW MoveBlock
-         DB "Q":DW ResetBlock
-         DB "L":DW DeleteLine
-         DB 10 :DW JumpEndTxt
-         DB 11 :DW JumpBegTxt
-         DB "J":DW JumpLine
-         DB "S":DW Search
-         DB "R":DW Replace
-         DB "G":DW Graphics
-        cp 33:jr nc,CMND_Help:pop de
-CMND5   call PrintKeyModes:scf:ret
+        ld hl,#010B
+        ld (PrintXY),hl
+        ld (CurX),hl
+        call ReadKey
+        call Beep
+        ld a,e
+        call isdigit
+        jr nc,CMND1
+        ld de,DecCodeBuff
+        ld (de),a
+        inc de
+        ld a,13
+        ld (de),a
+        dec de
+        ld c,3
+        call Input
+        ex de,hl
+        ld a,(hl)
+        call isdigit
+        ld a,32
+        jr nc,CMND1
+        call MakeNumber
+        pop bc
+        call PrintKeyModes
+        ld a,e
+        jp EDIT5
+CMND1   call Pack
+        ld de,CMND5
+        push de
+        call toupper
+        ld b,13
+        call Case
+        DB "B":DW MarkBeg
+        DB "E":DW MarkEnd
+        DB "C":DW CopyBlock
+        DB "D":DW DelBlock
+        DB "M":DW MoveBlock
+        DB "Q":DW ResetBlock
+        DB "L":DW DeleteLine
+        DB 10 :DW JumpEndTxt
+        DB 11 :DW JumpBegTxt
+        DB "J":DW JumpLine
+        DB "S":DW Search
+        DB "R":DW Replace
+        DB "G":DW Graphics
+        cp 33
+        jr nc,CMND_Help
+        pop de
+CMND5   call PrintKeyModes
+        scf
+        ret
 
-CMND_Help call OutFS:DB "Help",0
-          ld hl,#0306:ld de,#1213
-          ld a,15:call OpenWindow
-          call OutFS
-      DB 22,4,9,"B - Mark block begin"
-      DB 22,5,9,"E - Mark block end"
-      DB 22,6,9,"C - Copy block"
-      DB 22,7,9,"D - Delete block"
-      DB 22,8,9,"M - Move block"
-      DB 22,9,9,"Q - Reset block"
-      DB 22,11,9,"S - Search"
-      DB 22,12,9,"R - Replace"
-      DB 22,13,9,"L - Delete line"
-      DB 22,14,9,"G - Graphics On/Off"
-      DB 22,15,9,24," - Jump to begin"
-      DB 22,16,9,25," - Jump to end"
-      DB 22,17,9,"J - Jump to line ..."
-      DB 22,19,9,"0..9 - Put decimal"
-      DB " code",0
-C_Help1   call Inkey:jr z,C_Help1:ret
+CMND_Help
+        call OutFS
+        DB "Help",0
+        ld hl,#0307
+        ld de,#121B
+        ld a,15
+        call OpenWindow
+        call OutFS
+        DB 22,4,9,"B - Mark block begin"
+        DB 22,5,9,"E - Mark block end"
+        DB 22,6,9,"C - Copy block"
+        DB 22,7,9,"D - Delete block"
+        DB 22,8,9,"M - Move block"
+        DB 22,9,9,"Q - Reset block"
+        DB 22,11,9,"S - Search"
+        DB 22,12,9,"R - Replace"
+        DB 22,13,9,"L - Delete line"
+        DB 22,14,9,"G - Graphics On/Off"
+        DB 22,15,9,24," - Jump to begin"
+        DB 22,16,9,25," - Jump to end"
+        DB 22,17,9,"J - Jump to line ..."
+        DB 22,19,9,"0..9 - Put decimal"
+        DB " code",0
+C_Help1 call Inkey
+        jr z,C_Help1
+        ret
 
-Graphics ld hl,Graph_Fl
-         ld a,(hl):cpl:ld (hl),a
-         ld hl,KeyModes:res 1,(hl)
-         ret
+Graphics
+        ld hl,Graph_Fl
+        ld a,(hl)
+        cpl
+        ld (hl),a
+        ld hl,KeyModes
+        res 1,(hl)
+        ret
 
 MarkBeg ld hl,(LineAddr)
         ld (BlockBeg),hl
@@ -871,15 +903,19 @@ FindOK    ld (LineAddr),hl:ld (LineNum),de
           push bc:ld b,7:call SetBegLine
           pop bc:or a:ret
 
-Search  call OutFS:DB "Search",0
-        call Pattern:call FindStr
+Search  call OutFS
+        DB "Search",0
+        call Pattern
+        call FindStr
         ret nc
 SrchNFnd call OutFS
          DB 22,6,12,"Not Found",0
          jp C_Help1
 
-Replace call OutFS:DB "Replace",0
-        call Pattern:res 0,(iy+2)
+Replace call OutFS
+        DB "Replace",0
+        call Pattern
+        res 0,(iy+2)
         call OutFS
         DB 22,4,11,"Replace with:"
         DB 22,5,9,SPC,15,22,5,9,0
