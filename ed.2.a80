@@ -25,10 +25,13 @@ Backward push de:ld de,(TEXT)
          ld a,(hl):cp 10:jr nz,$+3:inc hl
          pop bc:scf:ret
 
-_NextLine ld hl,(LineAddr):ld de,(LineNum)
-          call Forward
-_NxtLn1   ld (LineAddr),hl:ld (LineNum),de
-          ret
+_NextLine
+        ld hl,(LineAddr)
+        ld de,(LineNum)
+        call Forward
+_NxtLn1 ld (LineAddr),hl
+        ld (LineNum),de
+        ret
 
 _PrevLine ld hl,(LineAddr):ld de,(LineNum)
           call Backward:jr _NxtLn1
@@ -43,17 +46,32 @@ RemoveBlock ld hl,(TEXT)
             ld (BlockEnd),hl
             ret
 
-SetCurXY  push hl:push de:push bc
-          ld b,2:ld hl,(BegLine)
-SetCur1    ld de,(LineAddr):call cp_hl_de
-           jr nc,SetCur2
-            call Forward:inc b
-            ld a,b:cp 24:jr c,SetCur1
-           ld (BegLine),de:ld b,2
-SetCur2   ld a,(BegCol):ld c,a
-          ld a,(CurCol):sub c:ld c,a
-          ld (CurX),bc
-          pop bc:pop de:pop hl:ret
+SetCurXY
+        push hl
+        push de
+        push bc
+        ld b,2
+        ld hl,(BegLine)
+SetCur1 ld de,(LineAddr)
+        call cp_hl_de
+        jr nc,SetCur2
+        call Forward
+        inc b
+        ld a,b
+        cp 32
+        jr c,SetCur1
+        ld (BegLine),de
+        ld b,2
+SetCur2 ld a,(BegCol)
+        ld c,a
+        ld a,(CurCol)
+        sub c
+        ld c,a
+        ld (CurX),bc
+        pop bc
+        pop de
+        pop hl
+        ret
 
 CurChrAddr push af:ld hl,LineBuff
            ld a,(CurCol):ld e,a:ld d,0
@@ -98,7 +116,7 @@ SLnAdr3 ld (LineNum),de:ld (LineAddr),hl
         ld b,15:call SetBegLine
         pop bc:pop de:pop hl:ret
 
-LIST    ld bc,#1602
+LIST    ld bc,#1E02
         ld hl,(BegLine)
 LIST1   call SetLnAttr
         ld (LineAttr),a
@@ -238,9 +256,17 @@ InsTxt3 ex de,hl:ld hl,(RAMTOP)
         call MoveMem:ld hl,(SPACE)
         ld (hl),0:ret
 
-Pack    push hl:push de:push bc:push af
-        call PackBuff:call InsLine
-        pop af:pop bc:pop de:pop hl:ret
+Pack    push hl
+        push de
+        push bc
+        push af
+        call PackBuff
+        call InsLine
+        pop af
+        pop bc
+        pop de
+        pop hl
+        ret
 
 ;_____________________
 
@@ -572,29 +598,39 @@ ENDLN1   ld a,(hl):dec hl:cp 32
         djnz ENDLN1
         ld a,(BegCol):add a,40:jr RIGHT1
 
-PGDN    call Pack:ld b,22
+PGDN    call Pack:ld b,30
 PGDN1    call _NextLine:djnz PGDN1
         ld a,(CurY):sub 2:ld b,a
         call SetBegLine:scf:ret
 
-PGUP    call Pack:ld b,22
+PGUP    call Pack:ld b,30
 PGUP1    call _PrevLine:djnz PGUP1
         ld b,22:ld hl,(BegLine)
 PGUP2    call Backward:djnz PGUP2
         ld (BegLine),hl:scf:ret
 
-DOWN    call Pack:call _NextLine
-        jr nc,DOWN2:ld a,(CurY):cp 23
-        jr c,DOWN2:ld b,21:call SetBegLine
-        ld hl,#0200:push hl:ld hl,#1620
-        push hl:call Scroll_Up
-DOWN1   pop hl:pop hl
-DOWN2   pop hl:jp EDIT2
+DOWN    call Pack
+        call _NextLine
+        jr nc,DOWN2
+        ld a,(CurY)
+        cp 31
+        jr c,DOWN2
+        ld b,29
+        call SetBegLine
+        ld hl,#0200
+        push hl
+        ld hl,#1E50
+        push hl
+        call Scroll_Up
+DOWN1   pop hl
+        pop hl
+DOWN2   pop hl
+        jp EDIT2
 
 UP      call Pack:call _PrevLine
         jr nc,DOWN2:ld a,(CurY):cp 2
         jr nz,DOWN2:ld (BegLine),hl
-        ld hl,#0200:push hl:ld hl,#1620
+        ld hl,#0200:push hl:ld hl,#1E50
         push hl:call Scroll_Down
         jr DOWN1
 
