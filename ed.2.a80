@@ -152,30 +152,18 @@ Unpk4   inc de:dec a:jr z,Unpk0
 PrintLine push hl
           push bc
           ld d,a
+          ld e,0
+          ld c,Bios.Lp_Set_Place
+          rst #08
           ld hl,LineBuff
           ld a,(BegCol)
           ld c,a
           ld b,0
-          ld e,b
           add hl,bc
           ld a,(LineAttr)
-          ld b,a
-          ld c,Dss.WrChar
-          ld a,80                    ;ширина экрана
-.loop     push af
-          push de
-          push bc
-          push hl
-          ld a,(hl)
-          rst 0x10
-          pop hl
-          pop bc
-          pop de
-          pop af
-          inc hl
-          inc e
-          dec a
-          jr nz,.loop
+          ld e,a
+          ld bc,#50 * 256 + Bios.Lp_Print_Ln
+          rst #08
           pop bc
           pop hl
           ret
