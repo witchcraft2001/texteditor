@@ -15,7 +15,7 @@ Prt_HL_e        dec e
 
 StoreScrn       ld de,0
                 ld hl,#2050
-                ld a,(EditorPages.Pg1)
+                ld a,(EditorPages.Pg2)
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinCopy
@@ -24,7 +24,7 @@ StoreScrn       ld de,0
 
 RestoreScrn     ld de,0         ;todo: разобраться для чего и реализовать под Спринтер
                 ld hl,#2050
-                ld a,(EditorPages.Pg1)
+                ld a,(EditorPages.Pg2)
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinRest
@@ -105,6 +105,8 @@ InpFlName
         cp 32
         ret
 hFile   db 0
+FileName
+        ds 128
 FlNameBuff DS 128
 MergeBuff  DS 13
 EraseBuff  DS 13
@@ -153,7 +155,10 @@ Merge   ld h,8
         call InpFlName
         jp c,MAIN2
         ld hl,(SPACE)
-        jr LoadTxt1
+        call LoadTextFile
+        jp c,Cat1
+        jp EDIT
+
 
 LoadText
         ld h,4
@@ -162,7 +167,13 @@ LoadText
         jp c,MAIN2
         call BegText
         ld hl,(TEXT)
-LoadTxt1
+        call LoadTextFile
+        jp c,Cat1
+        ld hl,FlNameBuff
+        call CopyFileName
+        jp EDIT
+
+LoadTextFile
         push hl
         push de
         ex hl,de
@@ -178,7 +189,8 @@ FileNFnd
         ld de,#031A:call OpenWindow
         call OutFS
         DB 22,8,13,"File not found ...",0
-        jr Cat1
+        scf
+        ret
 LoadTxt2
         ld (hFile),a
         ld de,(RAMTOP)
@@ -198,7 +210,8 @@ LoadTxt2
         call OpenWindow
         call OutFS
         DB 22,8,13,"Reading error ...",0
-        jp Cat1
+        scf
+        ret
 LoadTxt21
         add hl,de
         ld (SPACE),hl
@@ -212,7 +225,8 @@ LoadTxt4
         dec hl
         ld (hl),13
         call RemoveBlock
-        jp EDIT
+        and a
+        ret
 
 CloseFile
         push af
@@ -391,7 +405,6 @@ Compress  ld a,%00010111:ld hl,#0418
 Comprs_Fl DB 0,2
           DB 5,25,5,0:DW MAIN2
           DB 6,25,5,0:DW MAIN2
-
 
 ;█ █ █ Пункт меню ~Info~ █ █ █
 
