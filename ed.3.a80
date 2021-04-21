@@ -15,7 +15,7 @@ Prt_HL_e        dec e
 
 StoreScrn       ld de,0
                 ld hl,#2050
-                ld a,(EditorPages.Pg2)
+                ld a,(EditorPages.Pg1)
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinCopy
@@ -24,7 +24,7 @@ StoreScrn       ld de,0
 
 RestoreScrn     ld de,0         ;todo: разобраться для чего и реализовать под Спринтер
                 ld hl,#2050
-                ld a,(EditorPages.Pg2)
+                ld a,(EditorPages.Pg1)
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinRest
@@ -76,24 +76,6 @@ New1    ld (SPACE),hl
  ;H -Y-KOOPДИHATA OKHA,
  ;DE-AДPEC БУФEPA ИMEHИ.
 
-InpFlName push de:ld de,#0514
-          ld l,2:ld a,%00010111
-          call OpenWindow
-          ld l,4:inc h:ld (PrintXY),hl
-          call OutFS
-          DB "Enter file name:",0
-          inc h:inc h:ld l,5
-          ld (PrintXY),hl
-          pop de:ld c,12:call Input
-          cp 13:scf:ret nz
-          push de:ex de,hl
-          call MakeName
-          pop hl:push hl
-          call IBM_MakeName
-          pop de:ld a,(de)
-          cp 32:ret
-
-FlNameBuff DS 13
 InpFlName
         push de
         ld de,#050E
@@ -142,12 +124,13 @@ SaveText ld h,3:ld de,FlNameBuff
          ld hl,(TEXT):ld de,(SPACE)
 SvText1  ex de,hl:or a
          sbc hl,de:ex de,hl
-         call Check_Disk:jp nc,IBM_Save
-         push hl:push de
-         ld c,#12:call 15635 ;Erase file
-         pop de:pop hl
-         ld c,#0B:call 15635 ;Save file
-         ld a,c:or b:jp nz,DiskFull
+        ;  call Check_Disk        ;todo: Реализовать под DSS
+        ;  jp nc,IBM_Save
+        ;  push hl:push de
+        ;  ld c,#12:call 15635 ;Erase file
+        ;  pop de:pop hl
+        ;  ld c,#0B:call 15635 ;Save file
+        ;  ld a,c:or b:jp nz,DiskFull
          jp EDIT
 
 SaveBlock call BlockExist:jp nc,FILES
@@ -157,52 +140,90 @@ SaveBlock call BlockExist:jp nc,FILES
           ld de,(BlockEnd)
           jr SvText1
 
-Catalogue call Check_Disk:jp nc,IBM_Cat
-          ld a,2:ld c,7:call 15635
+Catalogue 
+        ; call Check_Disk       ;todo: Реализовать под DSS
+        ; jp nc,IBM_Cat
+        ;   ld a,2:ld c,7:call 15635
 Cat1       call Inkey
           jr z,Cat1
           jp MAIN2
 
-Merge    ld h,8:ld de,MergeBuff
-         call InpFlName:jp c,MAIN2
-         ld hl,(SPACE)
-         jr LoadTxt1
+Merge   ld h,8
+        ld de,FlNameBuff
+        call InpFlName
+        jp c,MAIN2
+        ld hl,(SPACE)
+        jr LoadTxt1
 
-LoadText ld h,4:ld de,FlNameBuff
-         call InpFlName:jp c,MAIN2
-         call BegText
-         ld hl,(TEXT)
-LoadTxt1 ld de,(RAMTOP)
-         ex de,hl:or a
-         sbc hl,de:ex de,hl
-         call Check_Disk:jp nc,IBM_Load
-         xor a:ld (23823),a
-         ld (23824),a:ld (23801),a
-         ld a,3:ld c,#0E   ;Load file
-         push hl:push de
-         call 15635
-         pop de:pop hl
-         ld a,c:or b:jr z,LoadTxt2
-FileNFnd  ld a,%00110000:ld hl,#0709
-          ld de,#030F:call OpenWindow
-          call OutFS
-          DB 22,8,13,"File not"
-          DB " found ...",0
-          jr Cat1
-LoadTxt2 push hl:ld hl,(23784)
-         ld a,h:or l:jr nz,$+4
-          inc hl:inc hl
-         call cp_hl_de:jr nc,LoadTxt3
-          ex de,hl
-LoadTxt3 pop hl:add hl,de
-         ld (SPACE),hl:ld (hl),0
-         ld a,(EOLN_Fl)
-         or a:jr z,LoadTxt4
-          dec hl:ld (hl),10
-LoadTxt4 dec hl:ld (hl),13
-         call RemoveBlock
-         jp EDIT
+LoadText
+        ld h,4
+        ld de,FlNameBuff
+        call InpFlName
+        jp c,MAIN2
+        call BegText
+        ld hl,(TEXT)
+LoadTxt1
+        push hl
+        push de
+        ex hl,de
+        ld c,Dss.Open
+        ld a,1
+        rst #10        
+        pop de
+        pop hl
+        jr nc,LoadTxt2
+FileNFnd
+        ld a,%00110000
+        ld hl,#0709
+        ld de,#031A:call OpenWindow
+        call OutFS
+        DB 22,8,13,"File not found ...",0
+        jr Cat1
+LoadTxt2
+        ld (hFile),a
+        ld de,(RAMTOP)
+        ex de,hl
+        or a
+        sbc hl,de
+        ex de,hl
+        ld c,Dss.Read
+        push hl
+        rst #10        
+        call CloseFile
+        pop hl
+        jr nc,LoadTxt21
+        ld a,%00110000
+        ld hl,#0709
+        ld de,#0319:call OpenWindow
+        call OutFS
+        DB 22,8,13,"Reading error ...",0
+        jp Cat1
+LoadTxt21
+        add hl,de
+        ld (SPACE),hl
+        ld (hl),0
+        ld a,(EOLN_Fl)
+        or a
+        jr z,LoadTxt4
+        dec hl
+        ld (hl),10
+LoadTxt4
+        dec hl
+        ld (hl),13
+        call RemoveBlock
+        jp EDIT
 
+CloseFile
+        push af
+        push hl
+        push de
+        ld a,(hFile)
+        ld c,Dss.Close
+        rst #10
+        pop de
+        pop hl
+        pop af
+        ret
 ;█ █ █ Арифметические операции █ █ █
 
 Multiply  EQU #30A9  ;HL:= HL*DE
@@ -222,7 +243,7 @@ Div4     pop af:dec a
 
 ;█ █ █ Файловая система IBM █ █ █
 
-IBM_FileName DS 11
+; IBM_FileName DS 12
 
 Claster_Size DB 0
 FAT_Num      DB 0
@@ -237,335 +258,350 @@ Num_Clasters DW 0
 I_Addr  DW 0
 I_Len   DW 0
 
-IBM_MakeName
-         ld de,IBM_FileName
-         ld a,32:ld b,11:push de
-I_MkNm1   ld (de),a:inc de
-         djnz I_MkNm1:pop de:ld b,8
-I_MkNm2   ld a,(hl):inc hl
-          cp 32:ret c
-          cp ".":jr z,I_MkNm4
-          call toupper
-          ld (de),a:inc de
-         djnz I_MkNm2
-I_MkNm3   ld a,(hl):inc hl
-          cp 32:ret c
-         cp ".":jr nz,I_MkNm3
-I_MkNm4  ld de,IBM_FileName+8:ld b,3
-I_MkNm5   ld a,(hl):inc hl
-          cp 32:ret c
-          call toupper
-          ld (de),a:inc de
-         djnz I_MkNm5
-         ret
+; IBM_MakeName
+;         ld de,IBM_FileName
+;         ld a,32
+;         ld b,11
+;         push de
+; I_MkNm1 ld (de),a
+;         inc de
+;         djnz I_MkNm1
+;         pop de
+;         ld b,8
+; I_MkNm2 ld a,(hl)
+;         inc hl
+;         cp 32
+;         ret c
+;         cp "."
+;         jr z,I_MkNm4
+;         call toupper
+;         ld (de),a
+;         inc de
+;         djnz I_MkNm2
+; I_MkNm3 ld a,(hl):inc hl
+;         cp 32
+;         ret c
+;         cp "."
+;         jr nz,I_MkNm3
+; I_MkNm4 ld de,IBM_FileName+8
+;         ld b,3
+; I_MkNm5 ld a,(hl)
+;         inc hl
+;         cp 32
+;         ret c
+;         call toupper
+;         ld (de),a
+;         inc de
+;         djnz I_MkNm5
+;         ret
 
-Drive_Mode DB 0
+; Drive_Mode DB 0
 
-_DOS    exx:pop hl:ld e,(hl):inc hl
-        ld d,(hl):inc hl:push hl
-        push de:exx:jp 15663
+; _DOS    exx:pop hl:ld e,(hl):inc hl
+;         ld d,(hl):inc hl:push hl
+;         push de:exx:jp 15663
 
-Read_Secs xor a:jr Sectors
+; Read_Secs xor a:jr Sectors
 
-Write_Secs ld a,#FF
+; Write_Secs ld a,#FF
 
-Sectors
-  ; чтение (A=0) или запись (A=#FF) 
-  ; B секторов по адресу HL,начиная с 
-  ; относительного сектора DE.
-         push bc:push de:push hl
-         ld (#5CCE),a:ld a,(23752)
-         ld (Drive_Mode),a
-         ld h,a:ld a,(Disk_Format)
-         cp #FC:jr c,Sec1
-          rlca:and 2:ld l,a:ld a,h
-          and %11111100:or l
-          ld (23752),a
-Sec1     ld hl,(Secs_On_Trk)
-         ex de,hl:call Divide
-         ld d,l:pop hl:push hl
-         call _Sectors
-         ld a,(Drive_Mode):ld (23752),a
-         pop hl:pop de:pop bc:ld a,b
-Sec2     inc h:inc h:inc de:djnz Sec2
-         ld b,a:ret
+; Sectors
+;   ; чтение (A=0) или запись (A=#FF) 
+;   ; B секторов по адресу HL,начиная с 
+;   ; относительного сектора DE.
+;          push bc:push de:push hl
+;          ld (#5CCE),a:ld a,(23752)
+;          ld (Drive_Mode),a
+;          ld h,a:ld a,(Disk_Format)
+;          cp #FC:jr c,Sec1
+;           rlca:and 2:ld l,a:ld a,h
+;           and %11111100:or l
+;           ld (23752),a
+; Sec1     ld hl,(Secs_On_Trk)
+;          ex de,hl:call Divide
+;          ld d,l:pop hl:push hl
+;          call _Sectors
+;          ld a,(Drive_Mode):ld (23752),a
+;          pop hl:pop de:pop bc:ld a,b
+; Sec2     inc h:inc h:inc de:djnz Sec2
+;          ld b,a:ret
 
-_Sectors ld (#5D04),de:ld (#5D02),hl
-         push bc:call _DOS:DW #20F1
-         ld a,#FF:ld (#5D15),a
-         ld (#5D1F),a:pop bc
-         ld hl,#0201:ld (#5D1A),hl
-         ld (#5D1C),sp
-         dec sp:dec sp
-         call _DOS:DW #021D
-         ld hl,#01D3:push hl
-         ld hl,(#5D02):ld de,(#5D04)
-         ld (#5CF4),de:push bc:push hl
-         call _DOS:DW #1E36
-         pop hl:pop bc
-         xor a:or b:ret z
-_Sec1     push bc:push hl
-          call _DOS:DW #3F06
-          ld a,(#5CF4)
-          call _DOS:DW #3F02
-          ld a,(#5CF5)
-          call _DOS:DW #3E63
-          ld a,(#5CCE):or a
-          jr nz,_Sec2
-           call _DOS:DW #3F0E
-           jr _Sec3
-_Sec2     call _DOS:DW #3F0A
-_Sec3     pop hl:ld de,#0200
-          add hl,de:push hl
-          ld a,(Secs_On_Trk)
-          ld hl,#5CF4
-          inc (hl):cp (hl)
-          jr nz,_Sec4
-            ld (hl),0
-            inc hl:inc (hl)
-_Sec4     pop hl:pop bc
-         djnz _Sec1
-         jp 15663
+; _Sectors ld (#5D04),de:ld (#5D02),hl
+;          push bc:call _DOS:DW #20F1
+;          ld a,#FF:ld (#5D15),a
+;          ld (#5D1F),a:pop bc
+;          ld hl,#0201:ld (#5D1A),hl
+;          ld (#5D1C),sp
+;          dec sp:dec sp
+;          call _DOS:DW #021D
+;          ld hl,#01D3:push hl
+;          ld hl,(#5D02):ld de,(#5D04)
+;          ld (#5CF4),de:push bc:push hl
+;          call _DOS:DW #1E36
+;          pop hl:pop bc
+;          xor a:or b:ret z
+; _Sec1     push bc:push hl
+;           call _DOS:DW #3F06
+;           ld a,(#5CF4)
+;           call _DOS:DW #3F02
+;           ld a,(#5CF5)
+;           call _DOS:DW #3E63
+;           ld a,(#5CCE):or a
+;           jr nz,_Sec2
+;            call _DOS:DW #3F0E
+;            jr _Sec3
+; _Sec2     call _DOS:DW #3F0A
+; _Sec3     pop hl:ld de,#0200
+;           add hl,de:push hl
+;           ld a,(Secs_On_Trk)
+;           ld hl,#5CF4
+;           inc (hl):cp (hl)
+;           jr nz,_Sec4
+;             ld (hl),0
+;             inc hl:inc (hl)
+; _Sec4     pop hl:pop bc
+;          djnz _Sec1
+;          jp 15663
 
 
-Cl_to_Sec push hl:dec de:dec de
-          ld a,(Claster_Size)
-          ld b,a:ld l,a:ld h,0
-          call Multiply
-          ld de,(First_Sector)
-          add hl,de:ex de,hl
-          pop hl:ret
+; Cl_to_Sec push hl:dec de:dec de
+;           ld a,(Claster_Size)
+;           ld b,a:ld l,a:ld h,0
+;           call Multiply
+;           ld de,(First_Sector)
+;           add hl,de:ex de,hl
+;           pop hl:ret
 
-Read_Clast push bc:push de
-           call Cl_to_Sec
-           call Read_Secs
-           pop de:pop bc:ret
+; Read_Clast push bc:push de
+;            call Cl_to_Sec
+;            call Read_Secs
+;            pop de:pop bc:ret
 
-Write_Clast push bc:push de
-            call Cl_to_Sec
-            call Write_Secs
-            pop de:pop bc:ret
+; Write_Clast push bc:push de
+;             call Cl_to_Sec
+;             call Write_Secs
+;             pop de:pop bc:ret
 
-Read_FAT_DIR
-        ld de,1:ld hl,FAT
-        ld a,(FAT_Size):ld b,a
-        ld c,a:call Read_Secs
-        ld a,(FAT_Num):ld b,a:ld a,1
-        add a,c:djnz $-1:ld e,a
-        ld a,(DIR_Size):ld b,a
-        ld hl,DIR:call Read_Secs
-        ret
+; Read_FAT_DIR
+;         ld de,1:ld hl,FAT
+;         ld a,(FAT_Size):ld b,a
+;         ld c,a:call Read_Secs
+;         ld a,(FAT_Num):ld b,a:ld a,1
+;         add a,c:djnz $-1:ld e,a
+;         ld a,(DIR_Size):ld b,a
+;         ld hl,DIR:call Read_Secs
+;         ret
 
-Write_FAT_DIR
-        ld de,1:ld a,(FAT_Num):ld c,a
-Wr_F_D1  ld a,(FAT_Size):ld b,a
-         ld hl,FAT:call Write_Secs
-        dec c:jr nz,Wr_F_D1
-        ld a,(DIR_Size):ld b,a
-        ld hl,DIR:call Write_Secs
-        ret
+; Write_FAT_DIR
+;         ld de,1:ld a,(FAT_Num):ld c,a
+; Wr_F_D1  ld a,(FAT_Size):ld b,a
+;          ld hl,FAT:call Write_Secs
+;         dec c:jr nz,Wr_F_D1
+;         ld a,(DIR_Size):ld b,a
+;         ld hl,DIR:call Write_Secs
+;         ret
 
-Check_Disk
-       push hl:push de
-       ld hl,FAT:ld de,0:ld bc,#0105
-       call 15635:ld hl,(FAT+11)
-       ld de,512:call cp_hl_de
-       scf:jr nz,Chk_D1
-       ld a,(FAT+13):ld (Claster_Size),a
-       ld a,(FAT+16):ld (FAT_Num),a
-       ld a,(FAT+22):ld (FAT_Size),a
-       ld a,(FAT+17):ld (DIR_NumElm),a
-       rrca:rrca:rrca:rrca
-       and %00001111:ld (DIR_Size),a
-       ld a,(FAT+21):ld (Disk_Format),a
-       ld hl,(FAT+24):ld (Secs_On_Trk),hl
-       ld hl,(FAT+19):push hl
-       call Read_FAT_DIR
-       ld (First_Sector),de
-       pop hl:or a:sbc hl,de
-       ld a,(Claster_Size):ld e,a
-       ld d,0:call Divide
-       ld (Num_Clasters),hl:or a
-Chk_D1 pop de:pop hl:ret
+; Check_Disk
+;        push hl:push de
+;        ld hl,FAT:ld de,0:ld bc,#0105
+;        call 15635:ld hl,(FAT+11)
+;        ld de,512:call cp_hl_de
+;        scf:jr nz,Chk_D1
+;        ld a,(FAT+13):ld (Claster_Size),a
+;        ld a,(FAT+16):ld (FAT_Num),a
+;        ld a,(FAT+22):ld (FAT_Size),a
+;        ld a,(FAT+17):ld (DIR_NumElm),a
+;        rrca:rrca:rrca:rrca
+;        and %00001111:ld (DIR_Size),a
+;        ld a,(FAT+21):ld (Disk_Format),a
+;        ld hl,(FAT+24):ld (Secs_On_Trk),hl
+;        ld hl,(FAT+19):push hl
+;        call Read_FAT_DIR
+;        ld (First_Sector),de
+;        pop hl:or a:sbc hl,de
+;        ld a,(Claster_Size):ld e,a
+;        ld d,0:call Divide
+;        ld (Num_Clasters),hl:or a
+; Chk_D1 pop de:pop hl:ret
 
 ;BC - Информация о кластере номер DE 
 
-Get_Clast push hl:push af
-          ld h,d:ld l,e
-          or a:rr h:rr l
-          add hl,de:ld bc,FAT
-          add hl,bc:ld c,(hl)
-          inc hl:ld b,(hl)
-          bit 0,e:jr z,GetCl2
-          ld l,4
-GetCl1     rr b:rr c:dec l
-          jr nz,GetCl1
-GetCl2    ld a,b:and #0F:ld b,a
-          pop af:pop hl
-          ret
+; Get_Clast push hl:push af
+;           ld h,d:ld l,e
+;           or a:rr h:rr l
+;           add hl,de:ld bc,FAT
+;           add hl,bc:ld c,(hl)
+;           inc hl:ld b,(hl)
+;           bit 0,e:jr z,GetCl2
+;           ld l,4
+; GetCl1     rr b:rr c:dec l
+;           jr nz,GetCl1
+; GetCl2    ld a,b:and #0F:ld b,a
+;           pop af:pop hl
+;           ret
 
-;Записать в FAT информацию BC о
-;кластере номер DE
+; ;Записать в FAT информацию BC о
+; ;кластере номер DE
 
-Put_Clast push hl:push de
-          push bc:push af
-          ld h,d:ld l,e
-          or a:rr h:rr l
-          add hl,de:ld a,b
-          and #0F:ld b,a
-          ld a,e:ld de,FAT
-          add hl,de
-          bit 0,a:jr nz,PutCl1
-          ld (hl),c:inc hl
-          ld a,(hl):and #F0
-          or b:ld (hl),a
-          jr PutCl3
-PutCl1    ld e,4:and a
-PutCl2     rl c:rl b:dec e
-          jr nz,PutCl2
-          ld a,(hl):and #0F
-          or c:ld (hl),a
-          inc hl:ld (hl),b
-PutCl3    pop af:pop bc
-          pop de:pop hl
-          ret
+; Put_Clast push hl:push de
+;           push bc:push af
+;           ld h,d:ld l,e
+;           or a:rr h:rr l
+;           add hl,de:ld a,b
+;           and #0F:ld b,a
+;           ld a,e:ld de,FAT
+;           add hl,de
+;           bit 0,a:jr nz,PutCl1
+;           ld (hl),c:inc hl
+;           ld a,(hl):and #F0
+;           or b:ld (hl),a
+;           jr PutCl3
+; PutCl1    ld e,4:and a
+; PutCl2     rl c:rl b:dec e
+;           jr nz,PutCl2
+;           ld a,(hl):and #0F
+;           or c:ld (hl),a
+;           inc hl:ld (hl),b
+; PutCl3    pop af:pop bc
+;           pop de:pop hl
+;           ret
 
-Search_File
-        push de:push bc
-        ld hl,DIR:ld de,IBM_FileName
-        ld a,(DIR_NumElm):ld b,a
-Srch_F1  push de:push hl:ld c,11
-Srch_F2   ld a,(de):inc de:cp (hl)
-          inc hl:jr nz,Srch_F3
-         dec c:jr nz,Srch_F2
-         ld a,(hl):and %11000
-         jr nz,Srch_F3
-         pop hl:pop de:pop bc:pop de
-         scf:ret
-Srch_F3  pop hl:ld de,32:add hl,de:pop de
-        djnz Srch_F1
-        pop bc:pop de:or a:ret
+; Search_File
+;         push de:push bc
+;         ld hl,DIR:ld de,IBM_FileName
+;         ld a,(DIR_NumElm):ld b,a
+; Srch_F1  push de:push hl:ld c,11
+; Srch_F2   ld a,(de):inc de:cp (hl)
+;           inc hl:jr nz,Srch_F3
+;          dec c:jr nz,Srch_F2
+;          ld a,(hl):and %11000
+;          jr nz,Srch_F3
+;          pop hl:pop de:pop bc:pop de
+;          scf:ret
+; Srch_F3  pop hl:ld de,32:add hl,de:pop de
+;         djnz Srch_F1
+;         pop bc:pop de:or a:ret
 
-Erase_File
-        call Search_File:ret nc
-        ld (hl),#E5:ld de,26:add hl,de
-        ld e,(hl):inc hl:ld d,(hl)
-Era_F1   call Get_Clast:push bc
-         ld bc,0:call Put_Clast
-         pop de:ld a,d:cp #0F
-        jr c,Era_F1:ret
+; Erase_File
+;         call Search_File:ret nc
+;         ld (hl),#E5:ld de,26:add hl,de
+;         ld e,(hl):inc hl:ld d,(hl)
+; Era_F1   call Get_Clast:push bc
+;          ld bc,0:call Put_Clast
+;          pop de:ld a,d:cp #0F
+;         jr c,Era_F1:ret
 
-Empty_Clast
-        push hl:push bc:ld de,2
-        ld hl,(Num_Clasters)
-Empty1   call Get_Clast:ld a,b:or c
-         jr z,Empty2:inc de:dec hl
-        ld a,h:or l:jr nz,Empty1
-        jp DiskFull
-Empty2  pop bc:pop hl:ret
+; Empty_Clast
+;         push hl:push bc:ld de,2
+;         ld hl,(Num_Clasters)
+; Empty1   call Get_Clast:ld a,b:or c
+;          jr z,Empty2:inc de:dec hl
+;         ld a,h:or l:jr nz,Empty1
+;         jp DiskFull
+; Empty2  pop bc:pop hl:ret
 
-IBM_Erase  call Search_File:jp nc,MAIN2
-           call Erase_File
-           call Write_FAT_DIR:jp MAIN2
+; IBM_Erase  call Search_File:jp nc,MAIN2
+;            call Erase_File
+;            call Write_FAT_DIR:jp MAIN2
 
-IBM_Cat call I_Cat_Wind
-        ld a,(DIR_NumElm):ld b,a
-        ld c,0:ld hl,DIR
-I_Cat1   ld a,(hl):or a:jr z,I_CatQ
-         cp #E5:jr z,I_CatN
-         call I_Cat_XY:push hl
-         ld e,8:call Prt_HL_e
-         ld a,".":call Print
-         ld e,3:call Prt_HL_e
-         call OutFS:DB "  ",0
-         bit 3,(hl):jr nz,I_Cat4
-         bit 4,(hl):jr nz,I_Cat3
-          pop hl:push hl:ld de,30
-          add hl,de:ld a,(hl):or a
-          dec hl:jr nz,I_Cat2
-          ld a,(hl):dec hl:ld l,(hl)
-          ld h,a:ld a,3:call DecHL
-          jr I_Cat4
-I_Cat2     ld l,(hl):ld h,a
-           srl h:rr l:srl h:rr l
-           ld a,3:call DecHL
-           ld a,"K":call Print
-           jr I_Cat4
-I_Cat3   call OutFS:DB "SUBDIR",0
-I_Cat4   pop hl:inc c
-         ld a,c:cp 10:jr c,I_CatN
-          call Inkey:jr z,$-3
-          call I_Cat_Wind:ld c,0
-I_CatN   ld de,32:add hl,de
-        djnz I_Cat1
-I_CatQ  call I_Cat_XY:call OutFS
-        DB 32,16,%01010111
-        DB "End of Directory ",0
-        jp Cat1
+; IBM_Cat call I_Cat_Wind
+;         ld a,(DIR_NumElm):ld b,a
+;         ld c,0:ld hl,DIR
+; I_Cat1   ld a,(hl):or a:jr z,I_CatQ
+;          cp #E5:jr z,I_CatN
+;          call I_Cat_XY:push hl
+;          ld e,8:call Prt_HL_e
+;          ld a,".":call Print
+;          ld e,3:call Prt_HL_e
+;          call OutFS:DB "  ",0
+;          bit 3,(hl):jr nz,I_Cat4
+;          bit 4,(hl):jr nz,I_Cat3
+;           pop hl:push hl:ld de,30
+;           add hl,de:ld a,(hl):or a
+;           dec hl:jr nz,I_Cat2
+;           ld a,(hl):dec hl:ld l,(hl)
+;           ld h,a:ld a,3:call DecHL
+;           jr I_Cat4
+; I_Cat2     ld l,(hl):ld h,a
+;            srl h:rr l:srl h:rr l
+;            ld a,3:call DecHL
+;            ld a,"K":call Print
+;            jr I_Cat4
+; I_Cat3   call OutFS:DB "SUBDIR",0
+; I_Cat4   pop hl:inc c
+;          ld a,c:cp 10:jr c,I_CatN
+;           call Inkey:jr z,$-3
+;           call I_Cat_Wind:ld c,0
+; I_CatN   ld de,32:add hl,de
+;         djnz I_Cat1
+; I_CatQ  call I_Cat_XY:call OutFS
+;         DB 32,16,%01010111
+;         DB "End of Directory ",0
+;         jp Cat1
 
-I_Cat_Wind push hl:ld a,15:ld hl,#0503
-           ld de,#0C14:call OpenWindow
-           pop hl:ret
+; I_Cat_Wind push hl:ld a,15:ld hl,#0503
+;            ld de,#0C14:call OpenWindow
+;            pop hl:ret
 
-I_Cat_XY ld a,c:add a,6:ld d,a:ld e,6
-         ld (PrintXY),de:ret
+; I_Cat_XY ld a,c:add a,6:ld d,a:ld e,6
+;          ld (PrintXY),de:ret
 
-_HL     DW 0
-_DE     DW 0
+; _HL     DW 0
+; _DE     DW 0
 
-IBM_Load ld (_HL),hl:ld (_DE),de
-         ld (I_Addr),hl:call Search_File
-         jp nc,FileNFnd:ld bc,26
-         add hl,bc:ld c,(hl):inc hl
-         ld b,(hl):inc hl:ld a,(hl)
-         inc hl:ld h,(hl):ld l,a
-         ld (23784),hl:call cp_hl_de
-         jr c,$+3:ex de,hl:ld (I_Len),hl
-I_L1      ld d,b:ld e,c:ld a,d
-          cp #0F:jr nc,I_Le
-          ld hl,DIR:call Read_Clast
-          ld a,(Claster_Size):add a,a
-          ld b,a:ld c,0:ld hl,DIR
-I_L2       push hl:ld hl,(I_Len)
-           ld a,h:or l:dec hl
-           ld (I_Len),hl:pop hl
-           jr z,I_Le:ld a,(hl)
-           inc hl:push hl:ld hl,(I_Addr)
-           ld (hl),a:inc hl
-           ld (I_Addr),hl:pop hl
-           dec bc:ld a,b:or c
-          jr nz,I_L2
-         call Get_Clast:jr I_L1
-I_Le     ld hl,(_HL):ld de,(_DE)
-         jp LoadTxt2
+; IBM_Load ld (_HL),hl:ld (_DE),de
+;          ld (I_Addr),hl:call Search_File
+;          jp nc,FileNFnd:ld bc,26
+;          add hl,bc:ld c,(hl):inc hl
+;          ld b,(hl):inc hl:ld a,(hl)
+;          inc hl:ld h,(hl):ld l,a
+;          ld (23784),hl:call cp_hl_de
+;          jr c,$+3:ex de,hl:ld (I_Len),hl
+; I_L1      ld d,b:ld e,c:ld a,d
+;           cp #0F:jr nc,I_Le
+;           ld hl,DIR:call Read_Clast
+;           ld a,(Claster_Size):add a,a
+;           ld b,a:ld c,0:ld hl,DIR
+; I_L2       push hl:ld hl,(I_Len)
+;            ld a,h:or l:dec hl
+;            ld (I_Len),hl:pop hl
+;            jr z,I_Le:ld a,(hl)
+;            inc hl:push hl:ld hl,(I_Addr)
+;            ld (hl),a:inc hl
+;            ld (I_Addr),hl:pop hl
+;            dec bc:ld a,b:or c
+;           jr nz,I_L2
+;          call Get_Clast:jr I_L1
+; I_Le     ld hl,(_HL):ld de,(_DE)
+;          jp LoadTxt2
 
-IBM_Save ld (I_Addr),hl:ld (I_Len),de
-         call Erase_File
-         ld hl,DIR:ld de,32
-         ld a,(DIR_NumElm):ld b,a
-I_S1      ld a,(hl):or a:jr z,I_S2
-          cp #E5:jr z,I_S2:add hl,de
-         djnz I_S1:jp DiskFull
-I_S2     ld de,IBM_FileName:ex de,hl
-         ld bc,11:ldir:ld h,d:ld l,e
-         inc de:ld (hl),0:ld c,20:ldir
-         dec hl:dec hl:ld de,(I_Len)
-         ld (hl),d:dec hl:ld (hl),e
-         dec hl:call Empty_Clast
-         ld (hl),d:dec hl:ld (hl),e
-         push de:ld hl,(I_Len)
-         ld a,(Claster_Size):add a,a
-         ld d,a:ld e,0:call Divide
-         ld b,l:ld a,d:or e:jr z,$+3
-         inc b:pop de:ld hl,(I_Addr)
-I_S3      call Write_Clast:push bc
-          ld bc,#0FFF:call Put_Clast
-          pop bc:dec b:jr z,I_Se:push bc
-          push de:call Empty_Clast
-          ld c,e:ld b,d:pop de
-          call Put_Clast:ld e,c:ld d,b
-          pop bc:jr I_S3
-I_Se     call Write_FAT_DIR:jp EDIT
+; IBM_Save ld (I_Addr),hl:ld (I_Len),de
+;          call Erase_File
+;          ld hl,DIR:ld de,32
+;          ld a,(DIR_NumElm):ld b,a
+; I_S1      ld a,(hl):or a:jr z,I_S2
+;           cp #E5:jr z,I_S2:add hl,de
+;          djnz I_S1:jp DiskFull
+; I_S2     ld de,IBM_FileName:ex de,hl
+;          ld bc,11:ldir:ld h,d:ld l,e
+;          inc de:ld (hl),0:ld c,20:ldir
+;          dec hl:dec hl:ld de,(I_Len)
+;          ld (hl),d:dec hl:ld (hl),e
+;          dec hl:call Empty_Clast
+;          ld (hl),d:dec hl:ld (hl),e
+;          push de:ld hl,(I_Len)
+;          ld a,(Claster_Size):add a,a
+;          ld d,a:ld e,0:call Divide
+;          ld b,l:ld a,d:or e:jr z,$+3
+;          inc b:pop de:ld hl,(I_Addr)
+; I_S3      call Write_Clast:push bc
+;           ld bc,#0FFF:call Put_Clast
+;           pop bc:dec b:jr z,I_Se:push bc
+;           push de:call Empty_Clast
+;           ld c,e:ld b,d:pop de
+;           call Put_Clast:ld e,c:ld d,b
+;           pop bc:jr I_S3
+; I_Se     call Write_FAT_DIR:jp EDIT
 
 ;█ █ █ Пункт меню ~Print~ █ █ █
 
