@@ -4,7 +4,7 @@
 ;        ___           ___
 ;        ___  Project  ___
 
-        org 25200
+        org #4100
         include "dss_equ.asm"
 	include "bios_equ.asm"
 	include "sp_equ.asm"	
@@ -19,7 +19,7 @@ EXEhead
 		dw	0			; +14
 		dw	EntryExec		; +16
 		dw	EntryExec
-		dw	25200 - 1
+		dw	#4100
 EntryExec
         include "ed.1.a80"
         include "ed.2.a80"
@@ -27,6 +27,12 @@ EntryExec
 
 ; Font6   insert "Bold.fnt"
 
-END     DB 13,13,0
+END
+        DB 13
+StartText        
+        DB "Hello friends! This is ported version of ZX/IBM Editor",13
+        DB "Original version by Hohlov Oleg, (c) 1993.",13
+        DB "Ported by Mikhaltchenkov Dmitry, (c) 2021.",13,13,0
+EndText
 ExeEnd
         savebin	"editor.exe",EXEhead,ExeEnd-EXEhead

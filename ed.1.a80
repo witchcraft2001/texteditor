@@ -8,11 +8,11 @@
 
         jp START
 
-TEXT    DW END+1
-SPACE   DW END+2
-RAMTOP  DW #E7FF
-FAT     EQU #E800
-DIR     EQU FAT+2560
+TEXT    DW StartText                ;Начало текста
+SPACE   DW EndText-1                ;конец текста
+RAMTOP  DW #FFFF                ;верхняя граница текста
+; FAT     EQU #E800
+; DIR     EQU FAT+2560
 SaveSP  DW 0
 
 BegLine   DW END+1
@@ -141,18 +141,6 @@ MoveM1  add hl,bc:dec hl
         dec hl:ex de,hl:lddr
 MoveM2  pop hl:ret
 
-;HL- AДPEC ЗHAKOMECTA DE 
-UpByte  ld a,d
-        and 7
-        rrca:rrca:rrca
-        add a,e
-        ld l,a
-        ld a,d
-        and #18
-        or #40
-        ld h,a
-        ret
-
 ; ШAПKA ФУHKЦИИ,ПOЛУЧAЮЩEИ
 ; ПAPAMETPЫ ЧEPEЗ CTEK.
 ; HAPУШAET DE.
@@ -172,44 +160,45 @@ FuncTail pop ix:pop af:pop bc
 ;   ДPAИBEP KУPCOPA 
 ;______________________
 
-GetMasks ;BEPHУTЬ B HL AДPEC 
-   ;ЗHAKOMECTA B ЭKPAHE,B BC- 
-   ;MACKУ 6-TOЧEЧHOИ ПEЧATИ. 
-   ;BXOД:HL- (Y,X) ЗHAKOMECTA. 
-   ; DE HE HAPУШAET
-
-        ld a,l:ld b,a:srl a:srl a
-        ld c,a:adc a,c:add a,c:ld l,a
-        ld a,h:and 7:rrca:rrca:rrca
-        add a,l:ld l,a:ld a,h:and #18
-        or #40:ld h,a     ;HL-screen addr
-        push hl:ld a,b:and %11:add a,a
-        ld l,a:ld h,0:ld bc,Masks
-        add hl,bc:ld  c,(hl):inc hl
-        ld  b,(hl)         ;BC-mask
-        pop hl:ret
-
-Masks   DW %1111110000000000
-        DW %0000001111110000
-        DW %0000111111000000
-        DW %0000000000111111
-
-CurFlag DB 0
-
-PutCursor push hl:push bc
-        ld hl,(CurX):call GetMasks
-        ld a,h:add a,6:ld h,a
-        ld a,(hl):xor b:ld (hl),a:inc h
-        ld a,(hl):xor b:ld (hl),a:inc l
-        ld a,(hl):xor c:ld (hl),a:dec h
-        ld a,(hl):xor c:ld (hl),a
-        ld a,(CurFlag):cpl
-        ld (CurFlag),a:pop bc:pop hl
+PutCursor
+        push hl
+        push bc
+        ld de,(CurX)
+        push de
+        ld c,Dss.RdChar
+        rst #10
+        ex af,af'
+        ld a,b
+        and 7
+        rlca:rlca:rlca:rlca
+        ld c,a
+        ld a,b
+        and %01110000
+        rrca:rrca:rrca:rrca
+        or c
+        ld c,a
+        ld a,b
+        and %10001000
+        or c
+        ld b,a
+        ex af,af'
+        pop de
+        ld c,Dss.WrChar
+        rst #10
+        ld a,(CurFlag)
+        cpl
+        ld (CurFlag),a
+        pop bc
+        pop hl
         ret
 
 ClearCursor
-        ld a,(CurFlag):or a:ret z
-        call PutCursor:ret
+        ld a,0
+CurFlag equ $-1
+        or a
+        ret z
+        call PutCursor
+        ret
 
 ;_______________________
 
@@ -292,7 +281,6 @@ RdKey2   ld h,a:call ClearCursor
 ;______________________
 
 ;print A at (H,L) with Attr
-
 PrintA          push    hl
                 push    de
                 push    bc
@@ -310,7 +298,6 @@ PrintA          push    hl
 
 ;ПEЧATЬ CИMBOЛA B TEKУЩЕЙ ПOЗИЦИИ
 ;И EE MOДИФИKAЦИЯ.
-
 Print   push af:push hl:ld hl,(PrintXY)
         call PrintA:inc l:ld a,l:cp 42
         jr c,Print1
@@ -326,7 +313,6 @@ Print1  ld (PrintXY),hl
 ; #10=16 - Set Attributes ;
 ; #16=22 - Set PrintXY ;
 ; SPC - Spaces Compressor.
-
 OutHL   push af
 OutHL0  ld a,(hl):inc hl
         or a:jr z,OutHL1
@@ -384,12 +370,6 @@ DecHL5  djnz DecHL1
 ;_______________
 
 Beep    ret                             ;todo: реализовать бипер
-        push hl:push de:push bc
-        push af:push ix
-        ld de,10:ld hl,50
-        call #03B5
-        pop ix:pop af:pop bc
-        pop de:pop hl:ret
 
 ;________________________
 
@@ -474,54 +454,32 @@ Clear_Wind
 ; ДBA ПAPAMETPA: KOOPДИHATЫ И PAЗMEPЫ.
 
 Scroll_Up
-        call FuncHead:ld e,(ix+Xw)
-        ld d,(ix+Yw):call UpByte
-        ld (ScrM),hl:ld c,(ix+dY)
-ScrUp1  inc d:dec c:jr z,ScrUpE
-        call UpByte
-ScrUp2    push hl:exx:pop hl
-          ld de,(ScrM):ld b,0:ld a,8
-ScrUp3      push hl:push de:ld c,(ix+dX)
-            ldir:pop de:pop hl:inc h
-            inc d:dec a
-          jr nz,ScrUp3
-          exx:ld (ScrM),hl
-          ld a,h:and #18
-          rrca:rrca:rrca:or #58
-          exx:ld h,a:ld d,h:ld e,l
-          ld c,#20:ex de,hl:sbc hl,bc
-          ex de,hl:ld c,(ix+dX)
-          ldir:exx
-        jr ScrUp1
-ScrUpE  jp FuncTail
+        call FuncHead        
+        ld e,(ix+Xw)
+        ld d,(ix+Yw)
+        ld h,(ix+dY)
+        ld l,(ix+dX)
+        ld bc,1 * 256 + Dss.Scroll
+        xor a                           ;A = 0 - очищать строку
+        rst #10
+        jp FuncTail
 
-ScrM   dw 0
+; ScrM   dw 0
 
 ;CKPOЛЛИHГ OKHA BHИЗ; BEPXHЯЯ CTPOKA
 ;HE OЧИЩAETCЯ.
 ; ДBA ПAPAMETPA- KOOPДИHATЫ И PAЗMEPЫ
 
 Scroll_Down
-        call FuncHead:ld e,(ix+Xw)
-        ld d,(ix+Yw):ld c,(ix+dY)
-        ld a,d:add a,c:ld d,a:dec d
-        call UpByte:ld (ScrM),hl
-ScrDn1  dec d:dec c:jr z,ScrDnE
-        call UpByte
-ScrDn2    push hl:exx:pop hl
-          ld de,(ScrM):ld b,0:ld a,8
-ScrDn3      push hl:push de:ld c,(ix+dX)
-            ldir:pop de:pop hl
-            inc h:inc d:dec a
-          jr nz,ScrDn3
-          exx:ld (ScrM),hl:ld a,h
-          and #18:rrca:rrca:rrca
-          or #58:exx:ld h,a:ld d,h
-          ld e,l:ld c,#20:ex de,hl
-          add hl,bc:ex de,hl
-          ld c,(ix+dX):ldir:exx
-        jr ScrDn1
-ScrDnE  jp FuncTail
+        call FuncHead        
+        ld e,(ix+Xw)
+        ld d,(ix+Yw)
+        ld h,(ix+dY)
+        ld l,(ix+dX)
+        ld bc,2 * 256 + Dss.Scroll
+        xor a                           ;A = 0 - очищать строку
+        rst #10
+        jp FuncTail
 
 Frame_Wind
 ;OБBECTИ OKHO PAMKOИ.
@@ -683,21 +641,21 @@ OpenWindow
 ;ИMЯ ЗABEPШAETCЯ KOДOM < 32 ИЛИ '"'
 ; И MOЖET COДEPЖATЬ SPACES-COMPRESSORS.
 
-MakeName ld de,23773:ld b,8
-MkName1    ld a,(hl):inc hl
-           cp SPC:jr z,MkName5
-           cp 32:jr c,MkName2
-           cp #22:jr nz,MkName3
-MkName2      ld a,32:dec hl
-MkName3    ld (de),a:inc de
-         djnz MkName1
-MkName4  ld a,"C":ld (de),a:ret
-MkName5  ld c,(hl):inc hl:res 7,c
-         ld a,32
-MkName6   ld (de),a:inc de:dec b
-          jr z,MkName4
-         dec c:jr nz,MkName6
-         jr MkName1
+; MakeName ld de,23773:ld b,8
+; MkName1    ld a,(hl):inc hl
+;            cp SPC:jr z,MkName5
+;            cp 32:jr c,MkName2
+;            cp #22:jr nz,MkName3
+; MkName2      ld a,32:dec hl
+; MkName3    ld (de),a:inc de
+;          djnz MkName1
+; MkName4  ld a,"C":ld (de),a:ret
+; MkName5  ld c,(hl):inc hl:res 7,c
+;          ld a,32
+; MkName6   ld (de),a:inc de:dec b
+;           jr z,MkName4
+;          dec c:jr nz,MkName6
+;          jr MkName1
 
 ;___________________________
 
@@ -734,7 +692,8 @@ Menu_Struct
         ret
 
 ;Окраска пункта меню
-Menu_Cursor
+Menu_Cursor     push de
+                push af
                 ld hl,(Menu_Addr)
                 ld a,(hl)
                 call Menu_Struct
@@ -768,63 +727,31 @@ Menu_Cursor
                 inc e
                 pop bc
                 djnz .loop
+                pop af
+                pop de
                 ret
-                
 
-
-;         rrca:rrca:rrca
-;         ld h,a
-;         and %11100000
-;         add a,(ix+1)
-;         ld l,a
-;         ld a,h
-;         and 3
-;         or #58
-;         ld h,a
-;         ld b,(ix+2)
-; M_Crsr1   ld a,(hl)
-;         and 7
-;           rlca:rlca:rlca
-;           ld c,a
-;           ld a,(hl)
-;           and %00111000
-;           rrca:rrca:rrca
-;           or c
-;           ld c,a
-;           ld a,(hl)
-;           and %11000000
-;           or c
-;           ld (hl),a
-;           inc hl
-;         DJNZ M_Crsr1
-;         ret
-
-Menu    push bc:push de
-        ld (Menu_Addr),hl
+Menu            push bc
+                push de
+                ld (Menu_Addr),hl
 Menu1           call Menu_Cursor
 Menu2           ld c,Dss.WaitKey
                 rst #10
-                push af
-                ; bit 5,(iy+1)
-                ; jr z,Menu2
-                ; res 5,(iy+1)
                 call Menu_Cursor
-                pop af
+                ld c,a
                 ld hl,(Menu_Addr)
-        ;ld a,(23560)
-                ; ld      c,Dss.ScanKey
-                ; rst     #10
-                ; jr      z,.nokey
-                ld b,6
+                ld b,2
                 call Case
-                DB 13:DW MenuEnt
-                DB 32:DW MenuEsc
-                DB 8:DW Menu_Up
-                DB 9:DW Menu_Dn
-                DB 10:DW Menu_Dn
-                DB 11:DW Menu_Up
-.nokey          ld c,a
-                inc hl
+                DB 13:DW MenuEnt        ;Enter
+                DB #1b:DW MenuEsc       ;Esc
+                ld a,d
+                ld b,4
+                call Case
+                DB #58:DW Menu_Up       ;Cursor Up
+                DB #52:DW Menu_Dn       ;Cursor Dn
+                DB #56:DW Menu_Dn       ;>
+                DB #54:DW Menu_Up       ;<
+.nokey          inc hl
                 ld b,(hl)
                 dec hl
 Menu3           ld a,b

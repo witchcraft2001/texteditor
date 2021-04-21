@@ -94,13 +94,48 @@ InpFlName push de:ld de,#0514
           cp 32:ret
 
 FlNameBuff DS 13
+InpFlName
+        push de
+        ld de,#050E
+        ld l,2
+        ld a,%00010111
+        call OpenWindow
+        ld l,4
+        inc h
+        ld (PrintXY),hl
+        call OutFS
+        DB "Enter file name:",0
+        inc h
+        inc h
+        ld l,5
+        ld (PrintXY),hl
+        pop de
+        ld c,12
+        call Input
+        cp 13
+        scf
+        ret nz
+        ; ex hl,de
+        ; push hl
+        ; call IBM_MakeName
+        ; pop de
+        ld a,(de)
+        cp 32
+        ret
+hFile   db 0
+FlNameBuff DS 128
 MergeBuff  DS 13
 EraseBuff  DS 13
 
-Erase    ld h,9:ld de,EraseBuff
-         call InpFlName:jp c,MAIN2
-         call Check_Disk:jp nc,IBM_Erase
-         ld c,#12:call 15635:jp MAIN2
+Erase   ld h,9
+        ld de,EraseBuff
+        call InpFlName
+        jp c,MAIN2
+        ; call Check_Disk         ;todo: Реализовать под DSS
+        ; jp nc,IBM_Erase
+        ; ld c,#12
+        ; call 15635
+        jp MAIN2
 
 SaveText ld h,3:ld de,FlNameBuff
          call InpFlName:jp c,MAIN2
