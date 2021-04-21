@@ -179,6 +179,7 @@ FuncTail pop ix:pop af:pop bc
 ;______________________
 
 PutCursor
+        di
         push hl
         push bc
         push de
@@ -186,7 +187,11 @@ PutCursor
         push de
         ld c,Dss.RdChar
         rst #10
-        ex af,af'
+        pop de        
+        push bc
+        ld c,Bios.Lp_Set_Place
+        rst #08
+        pop bc
         ld a,b
         and 7
         rlca:rlca:rlca:rlca
@@ -199,17 +204,16 @@ PutCursor
         ld a,b
         and %10001000
         or c
-        ld b,a
-        ex af,af'
-        pop de
-        ld c,Dss.WrChar
-        rst #10
+        ld e,a
+        ld bc,256 + Bios.Lp_Print_Atr
+        rst #08
         ld a,(CurFlag)
         cpl
         ld (CurFlag),a
         pop de
         pop bc
         pop hl
+        ei
         ret
 
 ClearCursor
@@ -296,7 +300,8 @@ ReadKey push hl
         push bc
 RdKey0  call PutCursor
         ld hl,WaitConst
-RdKey1  call Inkey
+RdKey1  
+        call Inkey
         jr nz,RdKey2
         dec hl
         ld a,h
@@ -782,15 +787,16 @@ Menu_Cursor     di
                 ld hl,(Menu_Addr)
                 ld a,(hl)
                 call Menu_Struct
-                ld b,(ix+2)
                 ld d,(ix+0)
                 ld e,(ix+1)
-.loop           push bc
-                push de
                 push de
                 ld c,Dss.RdChar
                 rst #10
-                ex af,af'
+                pop de
+                push bc
+                ld c,Bios.Lp_Set_Place
+                rst #08
+                pop bc
                 ld a,b
                 and 7
                 rlca:rlca:rlca:rlca
@@ -803,15 +809,10 @@ Menu_Cursor     di
                 ld a,b
                 and %10001000
                 or c
-                ld b,a
-                pop de
-                ld c,Dss.WrChar
-                ex af,af'
-                rst #10
-                pop de
-                inc e
-                pop bc
-                djnz .loop
+                ld e,a
+                ld b,(ix+2)
+                ld c,Bios.Lp_Print_Atr
+                rst #08
                 pop af
                 pop de
                 ei

@@ -116,7 +116,9 @@ SLnAdr3 ld (LineNum),de:ld (LineAddr),hl
         ld b,15:call SetBegLine
         pop bc:pop de:pop hl:ret
 
-LIST    ld bc,#1E02
+LIST    ld a,#c0
+        out (#89),a
+        ld bc,#1E02
         ld hl,(BegLine)
 LIST1   call SetLnAttr
         ld (LineAttr),a
@@ -429,7 +431,9 @@ MainMenu DB 1,5
          DB 0,24,7,"s":DW SETUP
          DB 0,32,6,"i":DW INFO
 
-EDIT    call PrintEdInfo
+EDIT    ld a,#c0
+        out (#89),a
+        call PrintEdInfo
         scf
 EDIT1   jr nc,EDIT3
         call LIST
@@ -605,7 +609,7 @@ PGDN1    call _NextLine:djnz PGDN1
 
 PGUP    call Pack:ld b,30
 PGUP1    call _PrevLine:djnz PGUP1
-        ld b,22:ld hl,(BegLine)
+        ld b,30:ld hl,(BegLine)
 PGUP2    call Backward:djnz PGUP2
         ld (BegLine),hl:scf:ret
 
