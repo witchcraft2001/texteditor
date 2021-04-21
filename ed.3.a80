@@ -21,16 +21,8 @@ StoreScrn       ld de,0
                 ld c,Dss.WinCopy
                 rst #10
                 ret             ;todo: разобраться для чего и реализовать под Спринтер
-                ; ld hl,#4000
-                ; ld de,FAT
-                ; ld bc,#1000
-                ; ldir
-                ; ld h,#58
-                ; ld b,2
-                ; ldir
-                ; ret
 
-RestoreScrn     ld de,0
+RestoreScrn     ld de,0         ;todo: разобраться для чего и реализовать под Спринтер
                 ld hl,#2050
                 ld a,(EditorPages.Pg2)
                 ld b,a
@@ -38,14 +30,6 @@ RestoreScrn     ld de,0
                 ld c,Dss.WinRest
                 rst #10
                 ret
-                ; ld hl,FAT       ;todo: разобраться для чего и реализовать под Спринтер
-                ; ld de,#4000
-                ; ld bc,#1000
-                ; ldir
-                ; ld d,#58
-                ; ld b,2
-                ; ldir
-                ; ret
 
 ;█ █ █ Пункт меню ~File~ █ █ █ 
 
@@ -75,10 +59,12 @@ FileMenu DB 0,8
          DB 9,2,12,"q":DW Quit
 
 Quit    
-        ld sp,25198:ld hl,#1303
-        push hl:ld (23613),sp
-        res 4,(iy+1)
-        rst 8:DB 255
+        ld sp,(SaveSP)
+        ld a,(hMem)
+        ld c,Dss.FreeMem
+        rst #10
+        ld bc,Dss.Exit
+        rst #10
 
 New     call BegText:call RemoveBlock
         ld (hl),13:inc hl
@@ -90,7 +76,7 @@ New1    ld (SPACE),hl
  ;H -Y-KOOPДИHATA OKHA,
  ;DE-AДPEC БУФEPA ИMEHИ.
 
-InpFlName push de:ld de,#050E
+InpFlName push de:ld de,#0514
           ld l,2:ld a,%00010111
           call OpenWindow
           ld l,4:inc h:ld (PrintXY),hl
@@ -548,8 +534,8 @@ I_Se     call Write_FAT_DIR:jp EDIT
 
 ;█ █ █ Пункт меню ~Print~ █ █ █
 
-PRINT    ld a,15:ld hl,#0109
-         ld de,#050B:call OpenWindow
+PRINT    ld a,15:ld hl,#010C
+         ld de,#050F:call OpenWindow
          call OutFS
          DB 22,2,14,"Print text"
          DB 22,3,14,"print Block"
@@ -558,9 +544,9 @@ PRINT    ld a,15:ld hl,#0109
          call Menu:jp MAIN2
 
 PRINT_Menu DB 0,3
-           DB 2,10,9,"p":DW PRT_Text
-           DB 3,10,9,"b":DW PRT_Block
-           DB 4,10,9,"s":DW Page_Size
+           DB 2,13,13,"p":DW PRT_Text
+           DB 3,13,13,"b":DW PRT_Block
+           DB 4,13,13,"s":DW Page_Size
 
 PageSize   DW 0
 
@@ -601,7 +587,7 @@ Dr_Prt2  call #1F54    ;Проверка на BREAK
 
 PRT_Error ld sp,(SaveSP)
           ld a,%01010111:ld hl,#040C
-          ld de,#0510:call OpenWindow
+          ld de,#051D:call OpenWindow
           call OutFS:DB 22,6,18
           DB "Printer Error ...",0
           jp Cat1
@@ -645,7 +631,7 @@ PRT_Wait   push hl:push de
            pop de:pop hl:ret
 
 Page_Size  ld a,%00010111:ld hl,#050C
-           ld de,#050E:call OpenWindow
+           ld de,#051A:call OpenWindow
            call OutFS
            DB 22,6,17,"Page Size: ",0
            ld hl,(PageSize):ld a,3
@@ -662,22 +648,22 @@ PgSizeBuff DS 6
 
 ;█ █ █ Пункт меню ~SetUp~ █ █ █ 
 
-SETUP   ld a,15:ld hl,#010F
-        ld de,#050A:call OpenWindow
+SETUP   ld a,15:ld hl,#0115
+        ld de,#050D:call OpenWindow
         call OutFS
-        DB 22,2,22,"EOLN code"
-        DB 22,3,22,"Compress"
-        DB 22,4,22,"Driver",0
+        DB 22,2,23,"EOLN code"
+        DB 22,3,23,"Compress"
+        DB 22,4,23,"Driver",0
         ld hl,SetUpMenu
         call Menu:jp MAIN2
 
 SetUpMenu DB 0,3
-          DB 2,16,8,"e":DW EOLN_Code
-          DB 3,16,8,"c":DW Compress
-          DB 4,16,8,"d":DW Driver
+          DB 2,22,11,"e":DW EOLN_Code
+          DB 3,22,11,"c":DW Compress
+          DB 4,22,11,"d":DW Driver
 
-Driver  ld a,%00010111:ld hl,#0512
-        ld de,#0408:call OpenWindow
+Driver  ld a,%00010111:ld hl,#0518
+        ld de,#040A:call OpenWindow
         call OutFS
         DB 22,6,26,"Inside"
         DB 22,7,26,"User's",0
@@ -685,11 +671,11 @@ Driver  ld a,%00010111:ld hl,#0512
         jp MAIN2
 
 Driver_Fl DB 0,2
-          DB 6,19,6,"i":DW MAIN2
-          DB 7,19,6,"u":DW MAIN2
+          DB 6,25,8,"i":DW MAIN2
+          DB 7,25,8,"u":DW MAIN2
 
-EOLN_Code ld a,%00010111:ld hl,#0311
-          ld de,#0407:call OpenWindow
+EOLN_Code ld a,%00010111:ld hl,#0317
+          ld de,#0409:call OpenWindow
           call OutFS
           DB 22,4,25,"CR"
           DB 22,5,25,"CR/LF",0
@@ -697,11 +683,11 @@ EOLN_Code ld a,%00010111:ld hl,#0311
           jp MAIN2
 
 EOLN_Fl   DB 1,2
-          DB 4,18,5,0:DW MAIN2
-          DB 5,18,5,0:DW MAIN2
+          DB 4,24,7,0:DW MAIN2
+          DB 5,24,7,0:DW MAIN2
 
-Compress  ld a,%00010111:ld hl,#0412
-          ld de,#0406:call OpenWindow
+Compress  ld a,%00010111:ld hl,#0418
+          ld de,#0407:call OpenWindow
           call OutFS
           DB 22,5,26,"OFF"
           DB 22,6,26,"ON",0
@@ -709,14 +695,14 @@ Compress  ld a,%00010111:ld hl,#0412
           jp MAIN2
 
 Comprs_Fl DB 0,2
-          DB 5,19,4,0:DW MAIN2
-          DB 6,19,4,0:DW MAIN2
+          DB 5,25,5,0:DW MAIN2
+          DB 6,25,5,0:DW MAIN2
 
 
 ;█ █ █ Пункт меню ~Info~ █ █ █
 
-INFO    ld a,15:ld hl,#010F
-        ld de,#090F:call OpenWindow
+INFO    ld a,15:ld hl,#0113
+        ld de,#0916:call OpenWindow
         call OutFS
         DB 22,2,21,"ZX/IBM Text Editor"
         DB 22,3,21,"ver.1.0 (Oct.1993)"
