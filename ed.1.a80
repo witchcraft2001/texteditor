@@ -52,12 +52,15 @@ Case3   ld b,(hl):inc hl:ld h,(hl)
         ld l,b:jr Case2
 
 ;ПPOBEPKA: D <= A < E
-
-Interval cp d:ccf:ret nc:cp e:ret
+Interval
+        cp d
+        ccf
+        ret nc
+        cp e
+        ret
 
 ;  BXOД:  A,List
 ;  BЫXOД: A
-
 Subst   ex (sp),hl
         push bc
         ld b,(hl)

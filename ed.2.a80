@@ -161,7 +161,7 @@ PrintLine push hl
           ld a,(LineAttr)
           ld b,a
           ld c,Dss.WrChar
-          ld a,42                    ;ширина экрана
+          ld a,80                    ;ширина экрана
 .loop     push af
           push de
           push bc
@@ -267,7 +267,7 @@ Ovrfl1   ld sp,(SaveSP):push hl
          DB 22,11,12,0
          pop hl:call OutHL:call Beep
 Ovrfl2   call Inkey:jr z,Ovrfl2
-         jp START
+         jp MAIN1
 
 DiskFull ld hl,DFullMssg:jr Ovrfl1
 
@@ -384,36 +384,95 @@ MainMenu DB 1,5
          DB 0,24,7,"s":DW SETUP
          DB 0,32,6,"i":DW INFO
 
-EDIT   call PrintEdInfo:scf
-EDIT1  jr nc,EDIT3:call LIST
-EDIT2   call PrintLineNum:ld hl,(LineAddr)
-        call SetLnAttr:ld (LineAttr),a
+EDIT    call PrintEdInfo
+        scf
+EDIT1   jr nc,EDIT3
+        call LIST
+EDIT2   call PrintLineNum
+        ld hl,(LineAddr)
+        call SetLnAttr
+        ld (LineAttr),a
         call Unpack
-EDIT3  call SetCurXY:ld a,(CurY)
-       call PrintLine:call PrintCurCol
-       call PrintChrCode
-EDIT4  call ReadKey:call Beep
-       cp 21:jr c,EDIT7
-       ld b,a:ld a,(Graph_Fl):or a
-       ld a,b:jr z,EDIT5
-       call isalpha:jr nc,EDIT5
-         ld a,(23560):sub "A"
-         ld de,Graph_Table:call XLAT_b
-EDIT5   push af:call CurChrAddr
-        ld a,(KeyModes):bit 2,a:jr z,EDIT6
-         inc de:ld bc,LineBuff+127
-         call MoveMem
-EDIT6   pop af:ld (hl),a:call RIGHT
-        jr EDIT1
+EDIT3   call SetCurXY
+        ld a,(CurY)
+        call PrintLine
+        call PrintCurCol
+        call PrintChrCode
+EDIT4   call ReadKey
+        call Beep
+        ld hl,EDIT1
+        push hl
+        ld a,d        
+        cp #44
+        jp z,MAINMENU
+        ld a,e
+        cp #1b          ;Esc
+        jp z,COMMAND
+        cp 8
+        jp z,BACKSP
+        cp 9
+        jp z,TAB
+        cp 13
+        jp z,ENTER
+        or a
+        jr nz,.insert
+        ld a,d
+        cp #59
+        jp z,PGUP
+        cp #53
+        jp z,PGDN
+        cp #54
+        jp z,LEFT
+        cp #56
+        jp z,RIGHT
+        cp #58
+        jp z,UP
+        cp #52
+        jp z,DOWN
+        cp #4f
+        jp z,DELETE
+        cp #57
+        jp z,HOME
+        cp #51
+        jp z,ENDLN
+        pop de
+        jr EDIT4
+.insert pop hl
+        ld b,a
+        ld a,(Graph_Fl)
+        or a
+        ld a,b
+        jr z,EDIT5
+        call isalpha
+        jr nc,EDIT5
+        ld a,(23560)
+        sub "A"
+        ld de,Graph_Table
+        call XLAT_b
+EDIT5   push af
+        call CurChrAddr
+        ld a,(KeyModes)
+        bit 2,a
+        jr z,EDIT6
+        inc de
+        ld bc,LineBuff+127
+        call MoveMem
+EDIT6   pop af
+        ld (hl),a
+        call RIGHT
+        jp EDIT1
 
-EDIT7  sub 4:ld de,EdKeysTable
-       call XLAT_w:ld de,EDIT1:push de
-       jp (hl)
+; EDIT7   sub 4
+;         ld de,EdKeysTable
+;         call XLAT_w
+;         ld de,EDIT1
+;         push de
+;         jp (hl)
 
-EdKeysTable
- DW PGDN,PGUP,CAPSLOCK,RUSLAT,LEFT,RIGHT
- DW DOWN,UP,BACKSP,ENTER,COMMAND,DELETE
- DW HOME,INSERT,ENDLN,TAB,MAINMENU
+; EdKeysTable
+;  DW PGDN,PGUP,CAPSLOCK,RUSLAT,LEFT,RIGHT
+;  DW DOWN,UP,BACKSP,ENTER,COMMAND,DELETE
+;  DW HOME,INSERT,ENDLN,TAB,MAINMENU
 
 Graph_Fl DB 0
 
@@ -443,24 +502,50 @@ SetBegCol sub 42:jr nc,$+4:ld a,#FF
           or %111:inc a:cp 86:jr c,$+4
           ld a,86:ld (BegCol),a:ret
 
-LEFT    ld a,(CurCol):or a:ret z ;CF=0
-        dec a:ld (CurCol),a:ld b,a
-        ld a,(BegCol):cp b:ret z
-        ccf:ret nc:sub 8:jr nc,LEFT1
-         xor a
+LEFT    ld a,(CurCol)
+        or a
+        ret z ;CF=0
+        dec a
+        ld (CurCol),a
+        ld b,a
+        ld a,(BegCol)
+        cp b
+        ret z
+        ccf
+        ret nc
+        sub 8
+        jr nc,LEFT1
+        xor a
 LEFT1   ld (BegCol),a
-LEFT2   call Pack:scf:ret
+LEFT2   call Pack
+        scf
+        ret
 
 RIGHT   ld a,(CurCol)
-RIGHT1  cp 127:jr nc,RIGHT2:inc a
-RIGHT2  ld (CurCol),a:ld b,a:ld a,(BegCol)
-        ld d,a:add a,42:ld e,a:ld a,b
-        call Interval:ccf:ret nc
-        call SetBegCol:jr LEFT2
+RIGHT1  cp 127
+        jr nc,RIGHT2
+        inc a
+RIGHT2  ld (CurCol),a
+        ld b,a
+        ld a,(BegCol)
+        ld d,a
+        add a,42
+        ld e,a
+        ld a,b
+        call Interval
+        ccf
+        ret nc
+        call SetBegCol
+        jr LEFT2
 
-HOME    ld a,(BegCol):ld b,a:xor a
-        ld (BegCol),a:ld (CurCol),a
-        cp b:ret nc:jr LEFT2
+HOME    ld a,(BegCol)
+        ld b,a
+        xor a
+        ld (BegCol),a
+        ld (CurCol),a
+        cp b
+        ret nc
+        jr LEFT2
 
 ENDLN   ld hl,LineBuff+127:ld b,127
 ENDLN1   ld a,(hl):dec hl:cp 32
