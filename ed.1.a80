@@ -539,13 +539,12 @@ Clear_Wind
 
 Scroll_Up
         call FuncHead        
-        ld e,(ix+Xw)
+        ld e,(ix+dY)
         ld d,(ix+Yw)
-        ld h,(ix+dY)
-        ld l,(ix+dX)
-        ld bc,1 * 256 + Dss.Scroll
-        xor a                           ;A = 0 - очищать строку
-        rst #10
+        ld bc,1 * 256 + Bios.Lp_Scroll_Up
+        di
+        rst #08
+        ei
         jp FuncTail
 
 ; ScrM   dw 0
@@ -556,13 +555,12 @@ Scroll_Up
 
 Scroll_Down
         call FuncHead        
-        ld e,(ix+Xw)
+        ld e,(ix+dY)
         ld d,(ix+Yw)
-        ld h,(ix+dY)
-        ld l,(ix+dX)
-        ld bc,2 * 256 + Dss.Scroll
-        xor a                           ;A = 0 - очищать строку
-        rst #10
+        ld bc,2 * 256 + Bios.Lp_Scroll_Up
+        di
+        rst #08
+        ei
         jp FuncTail
 
 Frame_Wind
@@ -578,7 +576,8 @@ OrdinaryFrame
 	JR	Frame1
 DoubleFrame        
 	LD	HL,FrameType2
-Frame1	LD	D,(IX+Yw)
+Frame1	di
+        LD	D,(IX+Yw)
 	LD	E,(IX+Xw)
         ld      a,(PrintAttr)
 	LD	B,a
@@ -698,6 +697,7 @@ FramVer	EQU	$-1
 	INC	D
 	DEC	A
 	JR	NZ,FramVl1
+        ei
 	RET
 
 ;Ordinary frame
@@ -776,7 +776,8 @@ Menu_Struct
         ret
 
 ;Окраска пункта меню
-Menu_Cursor     push de
+Menu_Cursor     di
+                push de
                 push af
                 ld hl,(Menu_Addr)
                 ld a,(hl)
@@ -813,6 +814,7 @@ Menu_Cursor     push de
                 djnz .loop
                 pop af
                 pop de
+                ei
                 ret
 
 Menu            push bc
