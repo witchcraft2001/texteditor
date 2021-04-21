@@ -424,13 +424,20 @@ Graph_Table
 
 MAINMENU pop de:call Pack:jp MAIN3
 
-CAPSLOCK call CapsLock:jr RUSLAT1
+CAPSLOCK
+        ; call CapsLock ;todo: разобраться с капсом в DSS
+        jr RUSLAT1
 
-RUSLAT   call RusLat
-RUSLAT1  call PrintKeyModes:or a:ret
+RUSLAT  
+        ; call RusLat ; todo: разобраться с rus/lat в dss
+RUSLAT1 call PrintKeyModes
+        or a
+        ret
 
-INSERT   ld a,(KeyModes):xor %100
-         ld (KeyModes),a:jr RUSLAT1
+INSERT  ld a,(KeyModes)
+        xor %100
+        ld (KeyModes),a
+        jr RUSLAT1
 
 SetBegCol sub 42:jr nc,$+4:ld a,#FF
           or %111:inc a:cp 86:jr c,$+4

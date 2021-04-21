@@ -163,6 +163,7 @@ FuncTail pop ix:pop af:pop bc
 PutCursor
         push hl
         push bc
+        push de
         ld de,(CurX)
         push de
         ld c,Dss.RdChar
@@ -188,6 +189,7 @@ PutCursor
         ld a,(CurFlag)
         cpl
         ld (CurFlag),a
+        pop de
         pop bc
         pop hl
         ret
@@ -221,8 +223,10 @@ Check_SS push bc:ld c,a:ld a,127:ld b,2
 ;BEPHУTЬ KOД CИMBOЛA C УЧETOM Rus/Lat И
 ;Caps/Lock ИЛИ ZF=1,ЕСЛИ KЛABИШA НЕ НАЖАТА
 
-Inkey   ld c,Dss.ScanKey
+Inkey   push hl
+        ld c,Dss.ScanKey
         rst #10
+        pop hl
         ret
 ;    bit 5,(iy+1):ret z:res 5,(iy+1)
 ;         ld a,(23560):cp 32:jr nz,Inkey2
@@ -266,14 +270,27 @@ Inkey   ld c,Dss.ScanKey
 
 ;BEPHУTЬ KOД CИMBOЛA C OЖИДAHИEM НАЖАТИЯ
 ; И BЫBOДOM KУPCOPA
-
-ReadKey  push hl
-RdKey0   call PutCursor:ld hl,WaitConst
-RdKey1   call Inkey:jr nz,RdKey2
-         dec hl:ld a,h:or l
-         jr nz,RdKey1:jr RdKey0
-RdKey2   ld h,a:call ClearCursor
-         ld a,h:pop hl:ret
+; A - код символа
+; D - позиционный код
+; Е - ASCII код
+; C - режим клавиатуры:
+ReadKey push hl
+        push bc
+RdKey0  call PutCursor
+        ld hl,WaitConst
+RdKey1  call Inkey
+        jr nz,RdKey2
+        dec hl
+        ld a,h
+        or l
+        jr nz,RdKey1
+        jr RdKey0
+RdKey2  ld h,a
+        call ClearCursor
+        ld a,h
+        pop bc
+        pop hl
+        ret
 
 ;______________________
 
@@ -281,20 +298,20 @@ RdKey2   ld h,a:call ClearCursor
 ;______________________
 
 ;print A at (H,L) with Attr
-PrintA          push    hl
-                push    de
-                push    bc
-                ex      hl,de   ;d - y, e - x
-                ld      c,Dss.WrChar
-                ex      af,af'
-                ld      a,(PrintAttr)
-                ld      b,a
-                ex      af,af'
-                rst     0x10
-                pop     bc
-                pop     de
-                pop     hl
-                ret
+PrintA  push    hl
+        push    de
+        push    bc
+        ex      hl,de   ;d - y, e - x
+        ld      c,Dss.WrChar
+        ex      af,af'
+        ld      a,(PrintAttr)
+        ld      b,a
+        ex      af,af'
+        rst     0x10
+        pop     bc
+        pop     de
+        pop     hl
+        ret
 
 ;ПEЧATЬ CИMBOЛA B TEKУЩЕЙ ПOЗИЦИИ
 ;И EE MOДИФИKAЦИЯ.
@@ -381,43 +398,92 @@ Beep    ret                             ;todo: реализовать бипер
 ;KOTOPOИ OCУЩECTBЛEH BЫXOД
 ;(Enter,Up,Down)
 
-Input   push hl:push bc:push de
-Input1  ld hl,(PrintXY):pop de:push de
+Input   push hl
+        push bc
+        push de
+Input1  ld hl,(PrintXY)
+        pop de
+        push de
         ld b,c
-Input2   ld a,(de):cp 32:jr c,Input3
-         inc de:call PrintA:inc l
+Input2  ld a,(de)
+        cp 32
+        jr c,Input3
+        inc de
+        call PrintA
+        inc l
         djnz Input2
-        ld a,13:ld (de),a
-Input3  ld (CurX),hl:ld a,32:call PrintA
-Input4  call ReadKey:cp 32:jr c,Input6
-        ld (de),a:ld a,b:or a
-        jr z,Input5:call Beep:inc de
-Input5  ld a,13:ld (de),a:jr Input1
-Input6  cp 6:jr z,Input8
-        cp 7:jr z,Input9
-        cp 8:jr z,Input10
-        cp 12:jr z,Input7
-        cp 10:jr c,Input4
-        cp 14:jr nc,Input4
-        call Beep:pop de:pop bc
-        pop hl:ret
-Input7  ld a,b:cp c     ;Delete
+        ld a,13
+        ld (de),a
+Input3  ld (CurX),hl
+        ld a,32
+        call PrintA
+Input4  push de
+        call ReadKey
+        ld a,e
+        cp 32
+        jr c,Input6
+        pop de
+        ld (de),a
+        ld a,b
+        or a
+        jr z,Input5
+        call Beep
+        inc de
+Input5  ld a,13
+        ld (de),a
+        jr Input1
+
+Input6  pop de
+        cp #1b
+        jr z,.exit
+        cp 8
+        jr z,Input10
+        cp 13
+        jr z,.exit
+        ld a,d
+        cp #4f
+        jr z,Input7
+        cp #58          ;Cursor Up
+        jr z,Input7
+        cp #52          ;Cursor Down
+        jr z,Input7
+        jr Input4
+.exit   call Beep
+        pop de
+        pop bc
+        pop hl
+        ret
+Input7  ld a,b
+        cp c     ;Delete
         jr z,Input4
-        call Beep:dec de:ld a,13
-        ld (de),a:jr Input1
-Input8  call Beep:call CapsLock:jr Input1
-Input9  call Beep:call RusLat:jr Input1
-Input10 call Beep       ; "<-"
-        pop de:push de:ld a,13
-        ld (de),a:ld hl,(PrintXY):ld b,c
-Input11  ld a,32:call PrintA:inc l
-        djnz Input11:jp Input1
+        call Beep
+        dec de
+        ld a,13
+        ld (de),a
+        jr Input1
+Input10 call Beep       ; "<-" BackSpace
+        pop de
+        push de
+        ld a,13
+        ld (de),a
+        ld hl,(PrintXY)
+        ld b,c
+Input11 ld a,32
+        call PrintA
+        inc l
+        djnz Input11
+        jp Input1
 
-CapsLock ld a,(KeyModes):xor 1
-         ld (KeyModes),a:ret
+; CapsLock
+;         ld a,(KeyModes)
+;         xor 1
+;         ld (KeyModes),a
+;         ret
 
-RusLat  ld a,(KeyModes):xor 2
-        ld (KeyModes),a:ret
+; RusLat  ld a,(KeyModes)
+;         xor 2
+;         ld (KeyModes),a
+;         ret
 
 ;______________________
 
