@@ -174,7 +174,7 @@ PrintLine push hl
           ld d,a
           ld e,0
           ld c,Bios.Lp_Set_Place
-          rst #08
+          call CallBios
           ld hl,LineBuff
           ld a,(BegCol)
           ld c,a
@@ -183,7 +183,7 @@ PrintLine push hl
           ld a,(LineAttr)
           ld e,a
           ld bc,#50 * 256 + Bios.Lp_Print_Ln
-          rst #08
+          call CallBios
           pop bc
           pop hl
           ret
@@ -301,7 +301,7 @@ ClrScr
         ld      b,ScrnAttr
         ld      c,Dss.Clear
         ld      a,#20
-        rst     #10
+        call    CallDss
         ret
 
 PrintMenu

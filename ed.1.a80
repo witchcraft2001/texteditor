@@ -186,11 +186,11 @@ PutCursor
         ld de,(CurX)
         push de
         ld c,Dss.RdChar
-        rst #10
+        call CallDss
         pop de        
         push bc
         ld c,Bios.Lp_Set_Place
-        rst #08
+        call CallBios
         pop bc
         ld a,b
         and 7
@@ -206,7 +206,7 @@ PutCursor
         or c
         ld e,a
         ld bc,256 + Bios.Lp_Print_Atr
-        rst #08
+        call CallBios
         ld a,(CurFlag)
         cpl
         ld (CurFlag),a
@@ -214,6 +214,50 @@ PutCursor
         pop bc
         pop hl
         ei
+        ret
+
+;ПП перед вызовом Биос меняет страницу в банке 2 и перемещает туда стек (временно),
+;чтоб не было неожиданной порчи экранных данных
+CallBios
+        ld (.aValue),a
+        in a,(EmmWin.P2)
+        ld (.page),a
+        in a,(EmmWin.P1)
+        out (EmmWin.P2),a
+        ld (.spSave),sp
+        ld sp,#8100
+        ld a,0
+.aValue equ $-1
+        rst #08
+        ld sp,0
+.spSave equ $-2
+        push af
+        ld a,0
+.page   equ $-1
+        out (EmmWin.P2),a
+        pop af
+        ret
+
+;ПП перед вызовом Dss меняет страницу в банке 2 и перемещает туда стек (временно),
+;чтоб не было неожиданной порчи экранных данных
+CallDss
+        ld (.aValue),a
+        in a,(EmmWin.P2)
+        ld (.page),a
+        in a,(EmmWin.P1)
+        out (EmmWin.P2),a
+        ld (.spSave),sp
+        ld sp,#8100
+        ld a,0
+.aValue equ $-1
+        rst #10
+        ld sp,0
+.spSave equ $-2
+        push af
+        ld a,0
+.page   equ $-1
+        out (EmmWin.P2),a
+        pop af
         ret
 
 ClearCursor
@@ -247,7 +291,7 @@ Check_SS push bc:ld c,a:ld a,127:ld b,2
 
 Inkey   push hl
         ld c,Dss.ScanKey
-        rst #10
+        call CallDss
         pop hl
         ret
 ;    bit 5,(iy+1):ret z:res 5,(iy+1)
@@ -330,7 +374,7 @@ PrintA  push    hl
         ld      a,(PrintAttr)
         ld      b,a
         ex      af,af'
-        rst     0x10
+        call    CallDss
         pop     bc
         pop     de
         pop     hl
@@ -535,7 +579,7 @@ Clear_Wind
         ld h,(ix+dY)
         ld a,#20
         ld c,Dss.Clear
-        rst #10
+        call CallDss
         jp FuncTail
 
 ;CKPOЛЛИHГ OKHA BBEPX; HИЖHЯЯ CTPOKA
@@ -548,7 +592,7 @@ Scroll_Up
         ld d,(ix+Yw)
         ld bc,1 * 256 + Bios.Lp_Scroll_Up
         di
-        rst #08
+        call CallBios
         ei
         jp FuncTail
 
@@ -564,7 +608,7 @@ Scroll_Down
         ld d,(ix+Yw)
         ld bc,2 * 256 + Bios.Lp_Scroll_Up
         di
-        rst #08
+        call CallBios
         ei
         jp FuncTail
 
@@ -591,7 +635,7 @@ Frame1	di
 	LD	A,(HL)
 	LD	C,Dss.WrChar
         PUSH    BC
-	RST	DssRst
+	call    CallDss
         POP     BC
 	POP	HL
 	POP	DE
@@ -604,7 +648,7 @@ Frame1	di
 	PUSH	DE
 	PUSH	HL
         PUSH    BC
-	RST	DssRst
+	call    CallDss
         POP     BC
 	POP	HL
 	POP	DE
@@ -617,7 +661,7 @@ Frame1	di
 	PUSH	DE
 	PUSH	HL
         PUSH    BC
-	RST	DssRst
+	call    CallDss
         POP     BC
 	POP	HL
 	POP	DE
@@ -634,7 +678,7 @@ Frame1	di
         EX      AF,AF'
 	LD	C,Dss.WrChar
         PUSH    BC
-	RST	DssRst
+	call    CallDss
         POP     BC
 ;HORIZONTAL LINES
 	LD	H,(IX+Yw)
@@ -655,13 +699,13 @@ FramHor	EQU	$-1
 	PUSH	AF
         PUSH    BC
         push    hl
-	RST	DssRst
+	call    CallDss
         pop     hl
         POP     BC
 	POP	AF
 	LD	D,L
         PUSH    BC
-	RST	DssRst
+	call    CallDss
         POP     BC
 	POP	HL
 	POP	AF
@@ -689,13 +733,13 @@ FramVer	EQU	$-1
 	PUSH	AF
         PUSH    BC
         PUSH    HL
-	RST	DssRst
+	call    CallDss
         POP     HL
         POP     BC
 	POP	AF
 	LD	E,L
         PUSH    BC
-	RST	DssRst
+	call    CallDss
         POP     BC
 	POP	HL
 	POP	AF
@@ -791,11 +835,11 @@ Menu_Cursor     di
                 ld e,(ix+1)
                 push de
                 ld c,Dss.RdChar
-                rst #10
+                call CallDss
                 pop de
                 push bc
                 ld c,Bios.Lp_Set_Place
-                rst #08
+                call CallBios
                 pop bc
                 ld a,b
                 and 7
@@ -812,7 +856,7 @@ Menu_Cursor     di
                 ld e,a
                 ld b,(ix+2)
                 ld c,Bios.Lp_Print_Atr
-                rst #08
+                call CallBios
                 pop af
                 pop de
                 ei
@@ -823,7 +867,7 @@ Menu            push bc
                 ld (Menu_Addr),hl
 Menu1           call Menu_Cursor
 Menu2           ld c,Dss.WaitKey
-                rst #10
+                call CallDss
                 call Menu_Cursor
                 ld c,a
                 ld hl,(Menu_Addr)

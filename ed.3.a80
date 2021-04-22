@@ -19,7 +19,7 @@ StoreScrn       ld de,0
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinCopy
-                rst #10
+                call CallDss
                 ret             ;todo: разобраться для чего и реализовать под Спринтер
 
 RestoreScrn     ld de,0         ;todo: разобраться для чего и реализовать под Спринтер
@@ -28,7 +28,7 @@ RestoreScrn     ld de,0         ;todo: разобраться для чего и
                 ld b,a
                 ld ix,0
                 ld c,Dss.WinRest
-                rst #10
+                call CallDss
                 ret
 
 ;█ █ █ Пункт меню ~File~ █ █ █ 
