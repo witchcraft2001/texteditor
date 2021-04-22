@@ -1,2 +1,3 @@
 /build
-/editor.lst
+/*.lst
+editor.exe

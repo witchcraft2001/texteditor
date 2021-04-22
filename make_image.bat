@@ -4,7 +4,7 @@ echo Unmounting old image ...
 osfmount.com -D -m X:
 
 echo Assembling ...
-C:\asm\sjasm\sjasmplus.exe --lst=editor.lst --lstlab editor.asm
+C:\asm\sjasm\sjasmplus.exe --lst=ted.lst --lstlab textedit.asm
 if errorlevel 1 goto ERR
 
 echo Preparing floppy disk image ...
@@ -14,7 +14,7 @@ timeout 2 > nul
 osfmount.com -a -t file -o rw -f build/editor.img -m X:
 if errorlevel 1 goto ERR
 mkdir X:\EDITOR
-copy /Y EDITOR.EXE X:\EDITOR
+copy /Y TED.EXE X:\EDITOR
 if errorlevel 1 goto ERR
 rem Delay before unmount image
 timeout 2 > nul
