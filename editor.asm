@@ -21,9 +21,9 @@ EXEhead
 		dw	EntryExec
 		dw	#4200
 EntryExec
-        include "ed.1.a80"
-        include "ed.2.a80"
-        include "ed.3.a80"
+        include "ed.1.asm"
+        include "ed.2.asm"
+        include "ed.3.asm"
 
 ; Font6   insert "Bold.fnt"
 
