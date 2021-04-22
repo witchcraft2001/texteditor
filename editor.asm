@@ -18,12 +18,27 @@ Forward ld (ForwMEM),hl:push bc
         dec de:ld hl,(ForwMEM):ret
 ForwMEM DW 0
 
-Backward push de:ld de,(TEXT)
-         call cp_de_hl:pop de:ret nc
-         dec de:push bc:ld bc,0:ld a,13
-         dec hl:cpdr:cpdr:inc hl:inc hl
-         ld a,(hl):cp 10:jr nz,$+3:inc hl
-         pop bc:scf:ret
+Backward
+        push de
+        ld de,(TEXT)
+        call cp_de_hl
+        pop de:ret nc
+        dec de
+        push bc
+        ld bc,0
+        ld a,13
+        dec hl
+        cpdr
+        cpdr
+        inc hl
+        inc hl
+        ld a,(hl)
+        cp 10
+        jr nz,$+3
+        inc hl
+        pop bc
+        scf
+        ret
 
 _NextLine
         ld hl,(LineAddr)
@@ -33,8 +48,11 @@ _NxtLn1 ld (LineAddr),hl
         ld (LineNum),de
         ret
 
-_PrevLine ld hl,(LineAddr):ld de,(LineNum)
-          call Backward:jr _NxtLn1
+_PrevLine
+        ld hl,(LineAddr)
+        ld de,(LineNum)
+        call Backward
+        jr _NxtLn1
 
    ;CF=1, ECЛИ БЛOK CУЩECTBУET 
 BlockExist ld hl,(BlockBeg)
@@ -61,7 +79,7 @@ SetCur1 ld de,(LineAddr)
         cp 32
         jr c,SetCur1
         ld (BegLine),de
-        ld b,2
+        ld b,1
 SetCur2 ld a,(BegCol)
         ld c,a
         ld a,(CurCol)
@@ -116,12 +134,12 @@ SLnAdr3 ld (LineNum),de:ld (LineAddr),hl
         ld b,15:call SetBegLine
         pop bc:pop de:pop hl:ret
 
-LIST    ld a,#c0
-        out (#89),a
-        ld bc,#1E02
+LIST    ld bc,#1E01
         ld hl,(BegLine)
 LIST1   call SetLnAttr
         ld (LineAttr),a
+        ld a,#c0
+        out (#89),a
         call Unpack
         ld a,c
         call PrintLine
@@ -312,31 +330,49 @@ PrintMenu
         DB SPC,3,"Info",SPC,5,0
 
 PrintKeyModes
-         push hl:call OutFS
-         DB 22,1,0,16,%00111000,"  ",0
-         ld hl,KeyModes
-         ld a,(Graph_Fl):or a
-         jr z,PrModes0
-           call OutFS
-           DB "Graphics ",0
-           jr PrModes4
-PrModes0 bit 1,(hl):jr z,PrModes1
-           call OutFS:DB "Rus ",0
-           jr PrModes2
-PrModes1 call OutFS:DB "Lat ",0
-PrModes2 bit 0,(hl):jr z,PrModes3
-           call OutFS:DB "Caps ",0
-           jr PrModes4
-PrModes3 call OutFS:DB "Lock ",0
-PrModes4 bit 2,(hl):jr z,PrModes5
-           call OutFS:DB "Insert",SPC,6,0
-           jr PrModes6
-PrModes5 call OutFS:DB SPC,12,0
-PrModes6 pop hl:ret
+        push hl
+        call OutFS
+        DB 22,31,0,16,%00111000,"  ",0
+        ld hl,KeyModes
+        ld a,(Graph_Fl)
+        or a
+        jr z,PrModes0
+        call OutFS
+        DB "Graphics ",0
+        jr PrModes4
+PrModes0
+        bit 1,(hl)
+        jr z,PrModes1
+        call OutFS
+        DB "Rus ",0
+        jr PrModes2
+PrModes1
+        call OutFS:DB "Lat ",0
+PrModes2
+        bit 0,(hl)
+        jr z,PrModes3
+        call OutFS
+        DB "Caps ",0
+        jr PrModes4
+PrModes3
+        call OutFS
+        DB "Lock ",0
+PrModes4
+        bit 2,(hl)
+        jr z,PrModes5
+        call OutFS
+        DB "Insert",SPC,6,0
+        jr PrModes6
+PrModes5
+        call OutFS
+        DB SPC,12,0
+PrModes6
+        pop hl
+        ret
 
 PrintLineNum
          call OutFS
-         DB 22,1,23,16,%00111000,"Line ",0
+         DB 22,31,23,16,%00111000,"Line ",0
          ld hl,(LineNum):inc hl:ld c,34
 PrintLN1 ld a,3:call DecHL
 PrintLN2 ld a,(PrintXY):cp c:ret z
@@ -344,19 +380,21 @@ PrintLN2 ld a,(PrintXY):cp c:ret z
 
 PrintCurCol
          call OutFS
-         DB 22,1,34,16,%00111000,"Col ",0
+         DB 22,31,34,16,%00111000,"Col ",0
          ld a,(CurCol):ld l,a:ld h,0
          inc hl:ld c,0:jr PrintLN1
 
 PrintChrCode
          call OutFS
-         DB 22,1,19,16,%00111010,0
+         DB 22,31,19,16,%00111010,0
          call CurChrAddr:ld l,(hl)
          ld h,0:ld c,23:jr PrintLN1
 
 PrintEdInfo
-       call PrintMenu:call PrintKeyModes
-       call PrintLineNum:call PrintCurCol
+       call PrintMenu
+       call PrintKeyModes
+       call PrintLineNum
+       call PrintCurCol
        ret
 
 ;____________________
@@ -578,7 +616,7 @@ RIGHT2  ld (CurCol),a
         ld b,a
         ld a,(BegCol)
         ld d,a
-        add a,42
+        add a,80
         ld e,a
         ld a,b
         call Interval
@@ -600,7 +638,7 @@ ENDLN   ld hl,LineBuff+127:ld b,127
 ENDLN1   ld a,(hl):dec hl:cp 32
          ld a,b:jr nz,RIGHT1
         djnz ENDLN1
-        ld a,(BegCol):add a,40:jr RIGHT1
+        ld a,(BegCol):add a,78:jr RIGHT1
 
 PGDN    call Pack:ld b,30
 PGDN1    call _NextLine:djnz PGDN1
@@ -617,11 +655,11 @@ DOWN    call Pack
         call _NextLine
         jr nc,DOWN2
         ld a,(CurY)
-        cp 31
+        cp 30
         jr c,DOWN2
-        ld b,29
+        ld b,28
         call SetBegLine
-        ld hl,#0200
+        ld hl,#0100
         push hl
         ld hl,#1E50
         push hl
@@ -631,11 +669,18 @@ DOWN1   pop hl
 DOWN2   pop hl
         jp EDIT2
 
-UP      call Pack:call _PrevLine
-        jr nc,DOWN2:ld a,(CurY):cp 2
-        jr nz,DOWN2:ld (BegLine),hl
-        ld hl,#0200:push hl:ld hl,#1E50
-        push hl:call Scroll_Down
+UP      call Pack
+        call _PrevLine
+        jr nc,DOWN2
+        ld a,(CurY)
+        cp 1
+        jr nz,DOWN2
+        ld (BegLine),hl
+        ld hl,#0100
+        push hl
+        ld hl,#1E50
+        push hl
+        call Scroll_Down
         jr DOWN1
 
 LeadSpaces ld hl,(LineAddr):ld b,0
