@@ -14,26 +14,6 @@ Prt_HL_e
         call Print
         jr Prt_HL_e
 
-StoreScrn
-        ld de,0
-        ld hl,#2050
-        ld a,(EditorPages.Pg2)
-        ld b,a
-        ld ix,0
-        ld c,Dss.WinCopy
-        call CallDss
-        ret             ;todo: разобраться для чего и реализовать под Спринтер
-
-RestoreScrn
-        ld de,0         ;todo: разобраться для чего и реализовать под Спринтер
-        ld hl,#2050
-        ld a,(EditorPages.Pg2)
-        ld b,a
-        ld ix,0
-        ld c,Dss.WinRest
-        call CallDss
-        ret
-
 ;█ █ █ Пункт меню ~File~ █ █ █ 
 
 FILES   ld a,15:ld hl,#0101
@@ -61,7 +41,7 @@ FileMenu DB 0,8
          DB 8,2,12,"e":DW Erase
          DB 9,2,12,"q":DW Quit
 
-Quit    
+Quit    call WinBack
         ld sp,(SaveSP)
         ld a,(hMem)
         ld c,Dss.FreeMem
@@ -216,6 +196,7 @@ Merge   ld h,8
         call InpFlName
         jp c,MAIN2
         ld hl,(SPACE)
+        xor a
         call LoadTextFile
         jp c,Cat1
         jp EDIT
@@ -228,6 +209,7 @@ LoadText
         jp c,MAIN2
         call BegText
         ld hl,(TEXT)
+        xor a
         call LoadTextFile
         jp c,Cat1
         ld hl,FlNameBuff
@@ -235,6 +217,7 @@ LoadText
         jp EDIT
 
 LoadTextFile
+        ld (.flag),a
         push hl
         push de
         ex hl,de
@@ -244,13 +227,16 @@ LoadTextFile
         pop de
         pop hl
         jr nc,LoadTxt2
-FileNFnd
+        ld a,0
+.flag   equ $-1
+        and a
+        jr nz,.exit
         ld a,%00110000
         ld hl,#0709
         ld de,#031A:call OpenWindow
         call OutFS
         DB 22,8,13,"File not found ...",0
-        scf
+.exit   scf
         ret
 LoadTxt2
         ld (hFile),a
@@ -265,6 +251,10 @@ LoadTxt2
         call CloseFile
         pop hl
         jr nc,LoadTxt21
+        ld a,(LoadTextFile.flag)
+        and a
+        scf
+        ret nz
         ld a,%00110000
         ld hl,#0709
         ld de,#0319
