@@ -383,11 +383,11 @@ PrModes4
         bit 2,(hl)
         jr z,PrModes5
         call OutFS
-        DB "Insert",SPC,6,0
+        DB "Insert",SPC,6-4,0
         jr PrModes6
 PrModes5
         call OutFS
-        DB SPC,12,0
+        DB SPC,12-4,0
 PrModes6
         pop hl
         ret
@@ -406,6 +406,12 @@ PrintCurCol
          ld a,(CurCol):ld l,a:ld h,0
          inc hl:ld c,0:jr PrintLN1
 
+PrintFilename
+         call OutFS
+         DB 22,31,80-19,16,%00111000,"Edit: "
+.dosName DB "nameless.txt",0
+         ret
+
 PrintChrCode
          call OutFS
          DB 22,31,19,16,%00111010,0
@@ -417,6 +423,7 @@ PrintEdInfo
        call PrintKeyModes
        call PrintLineNum
        call PrintCurCol
+       call PrintFilename
        ret
 
 ;____________________
@@ -431,12 +438,6 @@ MAIN3   ld hl,MainMenu
         call Menu
         jr EDIT
 
-
-CopyFileName
-        ld de,FileName
-        ld bc,128
-        ldir
-        ret
 MainMenu DB 1,5
          DB 0,2,6,"f":DW FILES
          DB 0,9,6,"e":DW EDIT
@@ -458,6 +459,7 @@ EDIT2   call PrintLineNum
 EDIT3   call SetCurXY
         ld a,(CurY)
         call PrintLine
+        call PrintKeyModes
         call PrintCurCol
         call PrintChrCode
 EDIT4   call ReadKey
@@ -851,6 +853,9 @@ C_Help1 call Inkey
         ret
 
 Graphics
+        ld a,(KeyModes)
+        bit 1,a
+        ret nz
         ld hl,Graph_Fl
         ld a,(hl)
         cpl

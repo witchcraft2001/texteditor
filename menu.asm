@@ -132,9 +132,7 @@ SaveText
         call InpFlName
         jp c,MAIN2
         ld hl,FlNameBuff
-        ld de,FileName
-        ld bc,128
-        ldir
+        call CopyFileName
         ld hl,(TEXT)
         ld de,(SPACE)
 SvText1 ex de,hl

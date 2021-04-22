@@ -94,6 +94,31 @@ PrintXY   DW 0
 PrintAttr DB 7
 WaitConst EQU 7500
 
+CopyFileName
+        ld de,FileName
+        push de
+        ld bc,128
+        ldir
+        pop hl
+        ld de,PrintFilename.dosName
+        push de
+        ld bc,3*256 + Dss.EX_Path
+        call CallDss
+        pop hl
+        ld bc,#0d20
+        xor a        
+.loop   cp (hl)
+        jr z,.end
+        inc hl
+        djnz .loop
+        ld (hl),a
+        ret
+.end    ld (hl),c
+        inc hl
+        djnz .end
+        ld (hl),a
+        ret
+
 WinSave	LD C,Dss.Cursor
 	call CallDss
 	LD (SavePosition),DE
@@ -446,10 +471,29 @@ RdKey1
         jr nz,RdKey1
         jr RdKey0
 RdKey2  ld h,a
+        ld a,c
+        and 1
+        bit 7,c
+        jr z,.next
+        set 1,a
+.next   bit 1,c
+        jr z,.next1
+        set 2,a
+.next1  ld c,a
+        ld a,(KeyModes)
+        and %11111100
+        or c
+        ld (KeyModes),a
+        bit 1,a
+        call nz,.graphOff
         call ClearCursor
         ld a,h
         pop bc
         pop hl
+        ret
+.graphOff
+        xor a
+        ld (Graph_Fl),a
         ret
 
 ;______________________
