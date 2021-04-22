@@ -888,7 +888,7 @@ SearchBuff DS 16
 RplcBuff   DS 16
 
 Pattern ld a,%00001111:ld hl,#0306
-        ld de,#050E:call OpenWindow
+        ld de,#0516:call OpenWindow
         call OutFS
         DB 22,4,13,"Search:",22,5,9,0
         ld de,SearchBuff:ld c,15
@@ -947,45 +947,87 @@ Replace call OutFS
         call OutFS
         DB 22,4,11,"Replace with:"
         DB 22,5,9,SPC,15,22,5,9,0
-        ld c,15:ld de,RplcBuff
-        call Input:cp 13:ret nz
-        call FindStr:jr c,SrchNFnd
-Rplc1   push bc:call PrintLineNum
-        call PrintCurCol:pop bc
-        bit 0,(iy+2):jr nz,Rplc5
-        push bc:call LIST
-        ld hl,(LineAddr):call Unpack
-        call SetCurXY:call OutFS
-        DB 22,23,0,16,%01110000
-        DB SPC,5,"Replace ?",SPC,3
-        DB "(Yes/All/No/Quit)",SPC,8,0
+        ld c,15
+        ld de,RplcBuff
+        call Input
+        cp 13
+        ret nz
+        call FindStr
+        jr c,SrchNFnd
+Rplc1   push bc
+        call PrintLineNum
+        call PrintCurCol
         pop bc
-Rplc2   call ReadKey:call Beep
-        ld a,(23560):cp "q":ret z
-        cp "y":jr z,Rplc5
-        cp "a":jr z,Rplc4
-        cp "n":jr nz,Rplc2
-Rplc3   call FindStr:jr nc,Rplc1:ret
-Rplc4   set 0,(iy+2):push bc
-        call LIST:ld hl,(LineAddr)
-        call Unpack:pop bc
-Rplc5   ld hl,LineBuff:ld e,c:ld d,0
-        add hl,de:push hl:ld e,b
-        add hl,de:pop de:push de
+        bit 0,(iy+2)
+        jr nz,Rplc5
+        push bc
+        call LIST
+        ld hl,(LineAddr)
+        call Unpack
+        call SetCurXY
+        call OutFS
+        DB 22,31,0,16,%01110000
+        DB SPC,24,"Replace ?",SPC,3
+        DB "(Yes/All/No/Quit)",SPC,24,0
+        pop bc
+Rplc2   call ReadKey
+        push af
+        call Beep
+        pop af
+        cp "q"
+        ret z
+        cp "y"
+        jr z,Rplc5
+        cp "a"
+        jr z,Rplc4
+        cp "n"
+        jr nz,Rplc2
+Rplc3   call FindStr
+        jr nc,Rplc1:ret
+Rplc4   set 0,(iy+2)
+        push bc
+        call LIST
+        ld hl,(LineAddr)
+        call Unpack
+        pop bc
+Rplc5   ld hl,LineBuff
+        ld e,c
+        ld d,0
+        add hl,de
+        push hl
+        ld e,b
+        add hl,de
+        pop de
+        push de
         ld bc,RplcBuff
-Rplc6    ld a,(bc):cp 32
-         inc bc:inc de
+Rplc6   ld a,(bc)
+        cp 32
+        inc bc
+        inc de
         jr nc,Rplc6
-        dec de:ld a,e:sub low LineBuff ;Было "sub LineBuff", возможно сейчас не правильно написал
-        cp 128:jr c,$+4:ld a,127
-        ld (CurCol),a:call SetBegCol
-        ld bc,LineBuff+128:ld a,32
-        ld (bc),a:call MoveMem
-        ld hl,RplcBuff:pop de
-Rplc7    ld a,(hl):cp 13:jr z,Rplc8
-         ld (de),a:inc de:inc hl
+        dec de
+        ld a,e
+        sub low LineBuff ;Было "sub LineBuff", возможно сейчас не правильно написал
+        cp 128
+        jr c,$+4
+        ld a,127
+        ld (CurCol),a
+        call SetBegCol
+        ld bc,LineBuff+128
+        ld a,32
+        ld (bc),a
+        call MoveMem
+        ld hl,RplcBuff
+        pop de
+Rplc7   ld a,(hl)
+        cp 13
+        jr z,Rplc8
+        ld (de),a
+        inc de
+        inc hl
         jr Rplc7
-Rplc8   call Pack:jr Rplc3
+Rplc8   call Pack
+        jr Rplc3
 
 EditorPages
 .Pg0		db	#00
