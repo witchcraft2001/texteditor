@@ -9,13 +9,26 @@
 ;  OПEPAЦИИ C TEKCTOM 
 ;_________________________
 
-Forward ld (ForwMEM),hl:push bc
-        ld bc,0:ld a,13:cpir:inc de
-        ld a,(hl):cp 10:jr nz,$+3:inc hl
-        ld bc,(SPACE):push hl
-        or a:sbc hl,bc:pop hl
-        pop bc:ret c
-        dec de:ld hl,(ForwMEM):ret
+Forward ld (ForwMEM),hl
+        push bc
+        ld bc,0
+        ld a,13
+        cpir
+        inc de
+        ld a,(hl)
+        cp 10
+        jr nz,$+3
+        inc hl
+        ld bc,(SPACE)
+        push hl
+        or a
+        sbc hl,bc
+        pop hl
+        pop bc
+        ret c
+        dec de
+        ld hl,(ForwMEM)
+        ret
 ForwMEM DW 0
 
 Backward
@@ -68,7 +81,7 @@ SetCurXY
         push hl
         push de
         push bc
-        ld b,2
+        ld b,1
         ld hl,(BegLine)
 SetCur1 ld de,(LineAddr)
         call cp_hl_de
@@ -117,12 +130,21 @@ BegText
         ld (CurCol),a
         ret
 
-SetBegLine push de:push hl
-           ld hl,(LineAddr)
-           ld a,b:or a:jr z,SetBegL2
-SetBegL1    call Backward:djnz SetBegL1
-SetBegL2   ld (BegLine),hl
-           pop hl:pop de:ret
+SetBegLine
+        push de
+        push hl
+        ld hl,(LineAddr)
+        ld a,b
+        or a
+        jr z,SetBegL2
+SetBegL1
+        call Backward
+        djnz SetBegL1
+SetBegL2
+        ld (BegLine),hl
+        pop hl
+        pop de
+        ret
 
 SetLnAddr         ;BXOД:BC-HOMEP CTPOKИ 
         push hl:push de:push bc
@@ -327,7 +349,7 @@ PrintMenu
         DB 22,0,0,16,%00110000
         DB SPC,3,"File",SPC,3,"Edit"
         DB SPC,3,"Print",SPC,3,"SetUp"
-        DB SPC,3,"Info",SPC,5,0
+        DB SPC,3,"Info",SPC,5 + 38,0
 
 PrintKeyModes
         push hl
@@ -585,9 +607,17 @@ INSERT  ld a,(KeyModes)
         ld (KeyModes),a
         jr RUSLAT1
 
-SetBegCol sub 42:jr nc,$+4:ld a,#FF
-          or %111:inc a:cp 86:jr c,$+4
-          ld a,86:ld (BegCol),a:ret
+SetBegCol
+        sub 80
+        jr nc,$+4
+        ld a,#FF
+        or %111
+        inc a
+        cp 48
+        jr c,$+4
+        ld a,48         ;128 - 80 (MAX_STR - SCR_LEN)
+        ld (BegCol),a
+        ret
 
 LEFT    ld a,(CurCol)
         or a
@@ -640,10 +670,16 @@ ENDLN1   ld a,(hl):dec hl:cp 32
         djnz ENDLN1
         ld a,(BegCol):add a,78:jr RIGHT1
 
-PGDN    call Pack:ld b,30
-PGDN1    call _NextLine:djnz PGDN1
-        ld a,(CurY):sub 2:ld b,a
-        call SetBegLine:scf:ret
+PGDN    call Pack
+        ld b,30
+PGDN1   call _NextLine
+        djnz PGDN1
+        ld a,(CurY)
+        dec a
+        ld b,a
+        call SetBegLine
+        scf
+        ret
 
 PGUP    call Pack:ld b,30
 PGUP1    call _PrevLine:djnz PGUP1
@@ -657,7 +693,7 @@ DOWN    call Pack
         ld a,(CurY)
         cp 30
         jr c,DOWN2
-        ld b,28
+        ld b,29
         call SetBegLine
         ld hl,#0100
         push hl
@@ -781,9 +817,9 @@ MkNum1   ld a,(hl):call isdigit:ret nc
         jr MkNum1
 
 COMMAND call OutFS
-        DB 22,1,2,16,%00111000
+        DB 22,31,2,16,%00111000
         DB " Command:",SPC,12,0
-        ld hl,#010B
+        ld hl,#1F0B
         ld (PrintXY),hl
         ld (CurX),hl
         call ReadKey
@@ -838,25 +874,25 @@ CMND5   call PrintKeyModes
 CMND_Help
         call OutFS
         DB "Help",0
-        ld hl,#0307
+        ld hl,#071A
         ld de,#121B
         ld a,15
         call OpenWindow
         call OutFS
-        DB 22,4,9,"B - Mark block begin"
-        DB 22,5,9,"E - Mark block end"
-        DB 22,6,9,"C - Copy block"
-        DB 22,7,9,"D - Delete block"
-        DB 22,8,9,"M - Move block"
-        DB 22,9,9,"Q - Reset block"
-        DB 22,11,9,"S - Search"
-        DB 22,12,9,"R - Replace"
-        DB 22,13,9,"L - Delete line"
-        DB 22,14,9,"G - Graphics On/Off"
-        DB 22,15,9,24," - Jump to begin"
-        DB 22,16,9,25," - Jump to end"
-        DB 22,17,9,"J - Jump to line ..."
-        DB 22,19,9,"0..9 - Put decimal"
+        DB 22,8,#1C,"B - Mark block begin"
+        DB 22,9,#1C,"E - Mark block end"
+        DB 22,10,#1C,"C - Copy block"
+        DB 22,11,#1C,"D - Delete block"
+        DB 22,12,#1C,"M - Move block"
+        DB 22,13,#1C,"Q - Reset block"
+        DB 22,15,#1C,"S - Search"
+        DB 22,16,#1C,"R - Replace"
+        DB 22,17,#1C,"L - Delete line"
+        DB 22,18,#1C,"G - Graphics On/Off"
+        DB 22,19,#1C,24," - Jump to begin"
+        DB 22,20,#1C,25," - Jump to end"
+        DB 22,21,#1C,"J - Jump to line ..."
+        DB 22,23,#1C,"0..9 - Put decimal"
         DB " code",0
 C_Help1 call Inkey
         jr z,C_Help1
@@ -920,7 +956,7 @@ JumpTxt1   call SetLnAddr:ret
 JumpBegTxt ld bc,0:jr JumpTxt1
 
 JumpLine   call OutFS
-           DB 22,1,2,"Line Number:",0
+           DB 22,31,2,"Line Number:",0
            ld de,JumpLnBuff:ld a,13
            ld (de),a:ld c,5:call Input
            ex de,hl:call MakeNumber
@@ -1012,8 +1048,8 @@ Rplc1   push bc
         call SetCurXY
         call OutFS
         DB 22,31,0,16,%01110000
-        DB SPC,24,"Replace ?",SPC,3
-        DB "(Yes/All/No/Quit)",SPC,24,0
+        DB SPC,26,"Replace ?",SPC,3
+        DB "(Yes/All/No/Quit)",SPC,25,0
         pop bc
 Rplc2   call ReadKey
         push af

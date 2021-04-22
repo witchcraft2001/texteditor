@@ -382,14 +382,24 @@ PrintA  push    hl
 
 ;ПEЧATЬ CИMBOЛA B TEKУЩЕЙ ПOЗИЦИИ
 ;И EE MOДИФИKAЦИЯ.
-Print   push af:push hl:ld hl,(PrintXY)
-        call PrintA:inc l:ld a,l:cp 42
+Print   push af
+        push hl
+        ld hl,(PrintXY)
+        call PrintA
+        inc l
+        ld a,l
+        cp 80
         jr c,Print1
-         ld l,0:inc h:ld a,h:cp 24
-         jr c,Print1:ld h,0
+        ld l,0
+        inc h
+        ld a,h
+        cp 32
+        jr c,Print1
+        ld h,0
 Print1  ld (PrintXY),hl
-        pop hl:pop af:ret
-
+        pop hl
+        pop af
+        ret
 
 ;BЫBOД ПOCЛEДOBATEЛЬHOCTИ CИMBOЛOB,
 ;AДPECУEMOИ HL И ЗABEPШAEMOИ '\0'.
@@ -398,22 +408,37 @@ Print1  ld (PrintXY),hl
 ; #16=22 - Set PrintXY ;
 ; SPC - Spaces Compressor.
 OutHL   push af
-OutHL0  ld a,(hl):inc hl
-        or a:jr z,OutHL1
-        cp 16:jr z,OutHL2
-        cp 22:jr z,OutHL3
-        cp SPC:jr z,OutHL4
-        call Print:jr OutHL0
-OutHL1  pop af:ret
-OutHL2  ld a,(hl):ld (PrintAttr),a
-OutHL5  inc hl:jr OutHL0
-OutHL3  ld a,(hl):ld (PrintXY+1),a
-        inc hl:ld a,(hl)
-        ld (PrintXY),a:jr OutHL5
-OutHL4  push bc:ld b,(hl)
-OutHL6   ld a,32:call Print
+OutHL0  ld a,(hl)
+        inc hl
+        or a
+        jr z,OutHL1
+        cp 16
+        jr z,OutHL2
+        cp 22
+        jr z,OutHL3
+        cp SPC
+        jr z,OutHL4
+        call Print
+        jr OutHL0
+OutHL1  pop af
+        ret
+OutHL2  ld a,(hl)
+        ld (PrintAttr),a
+OutHL5  inc hl
+        jr OutHL0
+OutHL3  ld a,(hl)
+        ld (PrintXY+1),a
+        inc hl
+        ld a,(hl)
+        ld (PrintXY),a
+        jr OutHL5
+OutHL4  push bc
+        ld b,(hl)
+OutHL6  ld a,32
+        call Print
         djnz OutHL6
-        pop bc:jr OutHL5
+        pop bc
+        jr OutHL5
 
 OutFS   ex (sp),hl:call OutHL
         ex (sp),hl:ret
