@@ -116,9 +116,7 @@ SLnAdr3 ld (LineNum),de:ld (LineAddr),hl
         ld b,15:call SetBegLine
         pop bc:pop de:pop hl:ret
 
-LIST    ld a,#c0
-        out (#89),a
-        ld bc,#1E02
+LIST    ld bc,#1E02
         ld hl,(BegLine)
 LIST1   call SetLnAttr
         ld (LineAttr),a
@@ -169,24 +167,53 @@ Unpk4   inc de:dec a:jr z,Unpk0
 ;ПEЧATЬ CTPOKИ ИЗ БУФEPA PACПAKOBЩИKA.
 ; BXOД: a-HOMEP CTPOKИ HA ЭKPAHE
 
-PrintLine push hl
-          push bc
-          ld d,a
-          ld e,0
-          ld c,Bios.Lp_Set_Place
-          rst #08
-          ld hl,LineBuff
-          ld a,(BegCol)
-          ld c,a
-          ld b,0
-          add hl,bc
-          ld a,(LineAttr)
-          ld e,a
-          ld bc,#50 * 256 + Bios.Lp_Print_Ln
-          rst #08
-          pop bc
-          pop hl
-          ret
+PrintLine
+        push hl
+        push bc
+        ld e,a
+        di
+        in a,(EmmWin.P3)
+        ex af,af'
+        ld a,#50
+        out (EmmWin.P3),a
+        ld hl,LineBuff
+        ld a,(BegCol)
+        ld c,a
+        ld b,0
+        ld d,a
+        add hl,bc
+        ex hl,de
+        add hl,hl
+        add hl,hl
+        ld bc,#c301
+        add hl,bc
+        ld a,#81
+        out (#89),a
+        ld d,d
+        ld a,#50
+        ld b,b
+        ld l,l
+        ld a,(de)
+        ld b,b
+        ld a,a
+        ld (hl),a
+        ld b,b
+        inc hl
+        ld d,d
+        ld a,#50
+        ld b,b
+        ld a,(LineAttr)
+        ld e,e
+        ld (hl),a
+        ld b,b
+        ex af,af'
+        out (EmmWin.P3),a
+        ld a,#c0
+        out (#89),a
+        ei
+        pop bc
+        pop hl
+        ret
 
 PackBuff push hl:push bc
          ld hl,LineBuff

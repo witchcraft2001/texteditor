@@ -183,15 +183,21 @@ PutCursor
         push hl
         push bc
         push de
-        ld de,(CurX)
-        push de
-        ld c,Dss.RdChar
-        rst #10
-        pop de        
-        push bc
-        ld c,Bios.Lp_Set_Place
-        rst #08
-        pop bc
+        in a,(EmmWin.P3)
+        ex af,af'        
+        ld a,#50
+        out (EmmWin.P3),a
+        ld a,(CurX)
+        add a,#81
+        out (#89),a
+        ld a,(CurY)
+        ld l,a
+        ld h,0
+        add hl,hl
+        add hl,hl
+        ld bc,#c302
+        add hl,bc
+        ld b,(hl)
         ld a,b
         and 7
         rlca:rlca:rlca:rlca
@@ -204,9 +210,11 @@ PutCursor
         ld a,b
         and %10001000
         or c
-        ld e,a
-        ld bc,256 + Bios.Lp_Print_Atr
-        rst #08
+        ld (hl),a
+        ld a,#c0
+        out (#89),a
+        ex af,af'
+        out (EmmWin.P3),a
         ld a,(CurFlag)
         cpl
         ld (CurFlag),a
