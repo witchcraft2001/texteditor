@@ -106,3 +106,10 @@ Dss.Print	EQU	#5F
 FileMode.RW:    EQU     #00
 FileMode.Read:  EQU     #01
 FileMode.Write: EQU     #02
+FileAttrib.Normal equ   #00	; Normal file, no attributes 
+FileAttrib.RDOnly equ   #01	; Read only attribute 
+FileAttrib.Hidden equ   #02	; Hidden file 
+FileAttrib.System equ   #04	; System file 
+FileAttrib.Label  equ   #08	; Volume label
+FileAttrib.Direc  equ   #10	; Directory
+FileAttrib.Arch   equ   #20     ; Archive

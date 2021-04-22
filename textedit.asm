@@ -4,22 +4,22 @@
 ;        ___           ___
 ;        ___  Project  ___
 
-        org #4200
+        org #4180
         include "dss_equ.asm"
 	include "bios_equ.asm"
 	include "sp_equ.asm"	
 	
 EXEhead
-                db	"EXE"
-		db	0			; +3
-		dw	EntryExec-EXEhead
-		dw	0x0000			; +4
-		dw	ExeEnd-EntryExec	; +8
-		dw	0, 0			; +10
-		dw	0			; +14
-		dw	EntryExec		; +16
-		dw	EntryExec
-		dw	#4200
+        db	"EXE"
+	db	0			; +3
+	dw	EntryExec-EXEhead
+	dw	0x0000			; +4
+	dw	ExeEnd-EntryExec	; +8
+	dw	0, 0			; +10
+	dw	0			; +14
+	dw	EntryExec		; +16
+	dw	EntryExec
+	dw	#4180
 EntryExec
         include "routines.asm"
         include "editor.asm"

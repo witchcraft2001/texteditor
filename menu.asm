@@ -6,30 +6,33 @@
 ;      __  MAIN MENU  __
 ;________________________________
 
-Prt_HL_e        dec e
-                ret m
-                ld a,(hl)
-                inc hl
-                call Print
-                jr Prt_HL_e
+Prt_HL_e
+        dec e
+        ret m
+        ld a,(hl)
+        inc hl
+        call Print
+        jr Prt_HL_e
 
-StoreScrn       ld de,0
-                ld hl,#2050
-                ld a,(EditorPages.Pg2)
-                ld b,a
-                ld ix,0
-                ld c,Dss.WinCopy
-                call CallDss
-                ret             ;todo: разобраться для чего и реализовать под Спринтер
+StoreScrn
+        ld de,0
+        ld hl,#2050
+        ld a,(EditorPages.Pg2)
+        ld b,a
+        ld ix,0
+        ld c,Dss.WinCopy
+        call CallDss
+        ret             ;todo: разобраться для чего и реализовать под Спринтер
 
-RestoreScrn     ld de,0         ;todo: разобраться для чего и реализовать под Спринтер
-                ld hl,#2050
-                ld a,(EditorPages.Pg2)
-                ld b,a
-                ld ix,0
-                ld c,Dss.WinRest
-                call CallDss
-                ret
+RestoreScrn
+        ld de,0         ;todo: разобраться для чего и реализовать под Спринтер
+        ld hl,#2050
+        ld a,(EditorPages.Pg2)
+        ld b,a
+        ld ix,0
+        ld c,Dss.WinRest
+        call CallDss
+        ret
 
 ;█ █ █ Пункт меню ~File~ █ █ █ 
 
@@ -78,7 +81,7 @@ New1    ld (SPACE),hl
 
 InpFlName
         push de
-        ld de,#0520
+        ld de,#0524
         ld l,2
         ld a,%00010111
         call OpenWindow
@@ -94,6 +97,7 @@ InpFlName
         pop de
         ld c,32
         call Input
+        call CleanFileName
         cp 13
         scf
         ret nz
@@ -104,11 +108,26 @@ InpFlName
         ld a,(de)
         cp 32
         ret
+CleanFileName
+        push de
+        push af
+.loop   ld a,(de)
+        and a
+        jr z,.end
+        cp 13
+        jr z,.end        
+        inc de
+        jr .loop
+.end    xor a
+        ld (de),a
+        pop af
+        pop de
+        ret
 hFile   db 0
 FileName
         ds 128
 FlNameBuff DS 128
-MergeBuff  DS 13
+; MergeBuff  DS 13
 EraseBuff  DS 13
 
 Erase   ld h,9
@@ -121,11 +140,48 @@ Erase   ld h,9
         ; call 15635
         jp MAIN2
 
-SaveText ld h,3:ld de,FlNameBuff
-         call InpFlName:jp c,MAIN2
-         ld hl,(TEXT):ld de,(SPACE)
-SvText1  ex de,hl:or a
-         sbc hl,de:ex de,hl
+SaveText
+        ld hl,FileName
+        ld de,FlNameBuff
+        push de
+        ld bc,128
+        ldir
+        pop de
+        ld h,3
+        ld de,FlNameBuff
+        call InpFlName
+        jp c,MAIN2
+        ld hl,FlNameBuff
+        ld de,FileName
+        ld bc,128
+        ldir
+        ld hl,(TEXT)
+        ld de,(SPACE)
+SvText1 ex de,hl
+        or a
+        sbc hl,de
+        ex de,hl
+        push hl
+        push de
+        ld c,Dss.Creat_N
+        ld hl,FlNameBuff
+        ld a,FileAttrib.Arch
+        rst #10
+        pop de
+        pop hl
+        jr c,.error
+        ld (hFile),a
+        ld c,Dss.Write
+        rst #10
+        call CloseFile
+        jp nc,EDIT
+.error
+        ld a,%00110000
+        ld hl,#0709
+        ld de,#0319
+        call OpenWindow
+        call OutFS
+        DB 22,8,13,"Writing error ...",0
         ;  call Check_Disk        ;todo: Реализовать под DSS
         ;  jp nc,IBM_Save
         ;  push hl:push de
@@ -133,14 +189,19 @@ SvText1  ex de,hl:or a
         ;  pop de:pop hl
         ;  ld c,#0B:call 15635 ;Save file
         ;  ld a,c:or b:jp nz,DiskFull
-         jp EDIT
+        call Inkey
+        jp EDIT
 
-SaveBlock call BlockExist:jp nc,FILES
-          ld h,7:ld de,MergeBuff
-          call InpFlName:jp c,MAIN2
-          ld hl,(BlockBeg)
-          ld de,(BlockEnd)
-          jr SvText1
+SaveBlock
+        call BlockExist
+        jp nc,FILES
+        ld h,7
+        ld de,FlNameBuff
+        call InpFlName
+        jp c,MAIN2
+        ld hl,(BlockBeg)
+        ld de,(BlockEnd)
+        jr SvText1
 
 Catalogue 
         ; call Check_Disk       ;todo: Реализовать под DSS

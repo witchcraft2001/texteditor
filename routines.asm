@@ -225,7 +225,7 @@ CallBios
         in a,(EmmWin.P1)
         out (EmmWin.P2),a
         ld (.spSave),sp
-        ld sp,#8100
+        ld sp,#8080
         ld a,0
 .aValue equ $-1
         rst #08
@@ -247,7 +247,7 @@ CallDss
         in a,(EmmWin.P1)
         out (EmmWin.P2),a
         ld (.spSave),sp
-        ld sp,#8100
+        ld sp,#8080
         ld a,0
 .aValue equ $-1
         rst #10
