@@ -507,7 +507,6 @@ EDIT4   call ReadKey
         jr z,EDIT5
         call isalpha
         jr nc,EDIT5
-        ld a,(23560)
         sub "A"
         ld de,Graph_Table
         call XLAT_b
@@ -539,9 +538,9 @@ EDIT6   pop af
 Graph_Fl DB 0
 
 Graph_Table
- DB "�Խ�����͵�۾������ո�����"
+ DB #C7, #D4, #BD, #B6, #B7, #BA, #C6, #D8, #CD, #B5, #B3, #DB, #BE, #CF, #DD, #DE, #D6, #C4, #D7, #D5, #B8, #F0, #D2, #D0, #D1, #D3 
  DB 0,0,0,0,0,0
- DB "��ٴ����͹���ʱ����ɻ�����"
+ DB #C3, #C8, #D9, #B4, #BF, #B3, #CC, #CE, #CD, #B9, #BA, #B0, #BC, #CA, #B1, #B2, #DA, #C4, #C5, #C9, #BB, #FB, #C2, #C1, #CB, #C0 
 
 MAINMENU pop de:call Pack:jp MAIN3
 
