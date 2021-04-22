@@ -4,11 +4,10 @@
 ;        ___           ___
 ;        ___  Project  ___
 
-        org #4180
+        org #4180 - #16
         include "dss_equ.asm"
 	include "bios_equ.asm"
 	include "sp_equ.asm"	
-	
 EXEhead
         db	"EXE"
 	db	0			; +3
@@ -18,9 +17,11 @@ EXEhead
 	dw	0, 0			; +10
 	dw	0			; +14
 	dw	EntryExec		; +16
+SavePosition
 	dw	EntryExec
-	dw	#4180
+	dw	EntryExec - #80
 EntryExec
+
         include "routines.asm"
         include "editor.asm"
         include "menu.asm"
@@ -29,10 +30,14 @@ EntryExec
 
 END
         DB 13
-StartText        
-        DB "Hello friends! This is ported version of ZX/IBM Editor",13
-        DB "Original version by Hohlov Oleg, (c) 1993.",13
-        DB "Ported by Mikhaltchenkov Dmitry, (c) 2021.",13,13,0
+StartText
+        DB 13,0
 EndText
+
+SCR_BUF equ #C000
+SCR_BUF1 equ #C000 + 80*32*2
+LineBuff equ #4100
+SafeStack equ #8040
+
 ExeEnd
         savebin	"ted.exe",EXEhead,ExeEnd-EXEhead

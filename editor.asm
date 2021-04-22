@@ -424,61 +424,14 @@ PrintEdInfo
 ;     PEДAKTOP
 ;____________________
 
-START   ld (SaveSP),sp
-        push ix
-        ld a,#c0                ;Set the Y-Port value upper than 192
-        out (#89),a
-        LD BC,3 * 256 + Dss.GetMem
-        RST #10			; need 3 memory pages
-        JR NC,.next
-        LD HL,.no_memory_str
-	LD C,Dss.PChars
-	RST #10
-        LD BC,0xFF + Dss.Exit
-	RST #10
-.no_memory_str  db	"Not enough memory to load program.", 0x0D, 0x0A, 0x00
-.next   LD (hMem),A		; memory handle
-	LD HL,EditorPages
-	LD C,Bios.Emm_Fn5
-	RST #08
-	LD A,(EditorPages.Pg0)		; set pages from 0x8000
-	OUT (EmmWin.P2), A
-        LD A,(EditorPages.Pg1)		; set pages from 0xC000
-	OUT (EmmWin.P3), A
-        pop hl
-        ld a,(hl)
-        and a
-        jr z,MAIN1
-        inc hl
-        inc hl
-        ld de,FlNameBuff                ;парсинг ком. строки
-        push de
-        ld c,Dss.GSwitch                ;получить первый параметр ком.строки
-        rst #10
-        pop de
-        ld a,(de)
-        and a
-        jr z,MAIN1
-        ex de,hl
-        push hl
-        ld bc,Dss.EX_Path               ;разобрать строку - проверить получить имя файла
-        rst #10
-        pop de
-        jr c,MAIN1
-        and 3
-        cp 3
-        jr nz,MAIN1
-        ld hl,(TEXT)
-        call LoadTextFile
-        jr c,MAIN1
-        ld hl,FlNameBuff
-        call CopyFileName
 MAIN1   call ClrScr
 MAIN2   call PrintEdInfo
         call LIST
 MAIN3   ld hl,MainMenu
         call Menu
         jr EDIT
+
+
 CopyFileName
         ld de,FileName
         ld bc,128

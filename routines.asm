@@ -6,7 +6,66 @@
 ;       ___ ROUTINES ___
 ;__________________________________
 
-        jp START
+START   ld (SaveSP),sp
+        push ix
+        ld a,#c0                ;Set the Y-Port value upper than 192
+        out (#89),a
+        LD BC,3 * 256 + Dss.GetMem
+        RST #10			; need 3 memory pages
+        JR NC,.next
+        pop hl
+        LD HL,MsgNoMemory
+.exit	LD C,Dss.PChars
+	RST #10
+        LD A,(hMem)
+        and a
+        jr z,.skip
+        LD C,Dss.FreeMem
+        rst #10
+.skip   LD BC,#0100 + Dss.Exit
+	RST #10
+.next   LD (hMem),A		; memory handle
+	LD HL,EditorPages
+	LD C,Bios.Emm_Fn5
+	RST #08
+	LD A,(EditorPages.Pg0)		; set pages from 0x8000
+	OUT (EmmWin.P2), A
+        LD A,(EditorPages.Pg1)		; set pages from 0xC000
+	OUT (EmmWin.P3), A
+        call WinSave
+        pop hl
+        inc hl
+        ld de,FlNameBuff                ;парсинг ком. строки
+        push de
+        ld c,Dss.GSwitch                ;получить первый параметр ком.строки
+        rst #10
+        pop de
+        ld a,(de)
+        and a
+        jp z,MAIN1
+        ex de,hl
+        push hl
+        ld bc,Dss.EX_Path               ;разобрать строку - проверить получить имя файла
+        rst #10
+        pop de
+        jr c,.nofile
+        and 3
+        cp 3
+        jr nz,.nofile
+        ld hl,(TEXT)
+        ld a,1
+        call LoadTextFile
+        jr c,.nofile
+        ld hl,FlNameBuff
+        call CopyFileName
+        jp MAIN1
+.nofile ld hl,MsgCantOpen
+        jr .exit
+MsgNoMemory
+        db	"Not enough memory to load program.", 0x0D, 0x0A, 0x00
+MsgCantOpen
+        db	"Error: Can't open file", 0x0D, 0x0A, 0x00
+        org ($/256+1)*256
 
 TEXT    DW StartText                ;Начало текста
 SPACE   DW EndText-1                ;конец текста
@@ -23,7 +82,6 @@ LineAttr  DB 7
 CurCol    DB 0
 BlockBeg  DW END+1
 BlockEnd  DW END+1
-LineBuff  DS 145
 
 ScrnAttr   EQU %00000111
 BlockAttr  EQU %01010111
@@ -36,6 +94,41 @@ PrintXY   DW 0
 PrintAttr DB 7
 WaitConst EQU 7500
 
+WinSave	LD C,Dss.Cursor
+	call CallDss
+	LD (SavePosition),DE
+	LD IX,SCR_BUF
+.save	LD DE,#0000
+	LD HL,#2050
+	LD C,Dss.WinCopy
+        ld a,(EditorPages.Pg2)
+        ld b,a
+	DI
+	call CallDss
+	EI
+	RET
+
+WinBack	LD DE,#0000
+	LD HL,#2050
+	LD IX,SCR_BUF
+.back	LD C,Dss.WinRest
+        ld a,(EditorPages.Pg2)
+        ld b,a
+	DI
+	call CallDss
+	EI
+	LD DE,(SavePosition)
+	LD C,Dss.Locate
+	call CallDss
+	RET
+
+StoreScrn
+        ld ix,SCR_BUF1
+        jr WinSave.save
+
+RestoreScrn
+        ld ix,SCR_BUF1
+        jr WinBack.back
 ;________________________
 
 ; BCПOMOГAT.ПOДПPOГPAMMЫ
@@ -225,7 +318,7 @@ CallBios
         in a,(EmmWin.P1)
         out (EmmWin.P2),a
         ld (.spSave),sp
-        ld sp,#8080
+        ld sp,SafeStack
         ld a,0
 .aValue equ $-1
         rst #08
@@ -247,7 +340,7 @@ CallDss
         in a,(EmmWin.P1)
         out (EmmWin.P2),a
         ld (.spSave),sp
-        ld sp,#8080
+        ld sp,SafeStack
         ld a,0
 .aValue equ $-1
         rst #10
