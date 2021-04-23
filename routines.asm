@@ -719,17 +719,6 @@ Input6  cp #1b
         djnz .loop
         jp Input1
 
-; CapsLock
-;         ld a,(KeyModes)
-;         xor 1
-;         ld (KeyModes),a
-;         ret
-
-; RusLat  ld a,(KeyModes)
-;         xor 2
-;         ld (KeyModes),a
-;         ret
-
 ;______________________
 
 ;   OKOHHЫИ ДPAИBEP 
@@ -941,32 +930,6 @@ OpenWindow
         ld (PrintAttr),a:push hl:push de
         call Clear_Wind:call Frame_Wind
         pop de:pop hl:ret
-
-;________________________
-
-;   ФАЙЛОВАЯ СИСТЕМА 
-;________________________
-
-;CБOPKA ИMEHИ ФAИЛA B 23773.
-; BXOД: HL-AДPEC CTPИHГA ИMEHИ.
-;ИMЯ ЗABEPШAETCЯ KOДOM < 32 ИЛИ '"'
-; И MOЖET COДEPЖATЬ SPACES-COMPRESSORS.
-
-; MakeName ld de,23773:ld b,8
-; MkName1    ld a,(hl):inc hl
-;            cp SPC:jr z,MkName5
-;            cp 32:jr c,MkName2
-;            cp #22:jr nz,MkName3
-; MkName2      ld a,32:dec hl
-; MkName3    ld (de),a:inc de
-;          djnz MkName1
-; MkName4  ld a,"C":ld (de),a:ret
-; MkName5  ld c,(hl):inc hl:res 7,c
-;          ld a,32
-; MkName6   ld (de),a:inc de:dec b
-;           jr z,MkName4
-;          dec c:jr nz,MkName6
-;          jr MkName1
 
 ;___________________________
 

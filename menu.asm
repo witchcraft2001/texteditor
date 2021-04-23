@@ -282,47 +282,27 @@ PRINT_Menu DB 0,3
 
 PageSize   DW 0
 
-Dr_Init   ld a,(Driver_Fl):or a
-          jr z,Dr_Init1
-           push hl:push de
-           call #5B01
-           pop de:pop hl
-           ret
-Dr_Init1  ld a,#98    ;Настройка адаптера 
-          out (#7F),a ;           ______
-          ld a,1      ;Установить STROBE 
-          out (#5F),a
-          ret
+Dr_PrtA push hl
+        push de
+        push bc
+        ld c,Dss.Print
+        call CallDss
+        pop bc
+        pop de
+        pop hl
+        ret nc
+        jp PRT_Error
 
-Dr_PrtA  push hl:push de:push bc
-         ld hl,Driver_Fl:bit 0,(hl)
-         jr z,Dr_Prt1:call #5B03
-         pop bc:pop de:pop hl:ret nc
-         jp PRT_Error
-Dr_Prt1  out (#3F),a
-          ;Выставить байт на шину 
-Dr_Prt2  call #1F54    ;Проверка на BREAK
-         jr nc,PRT_Error  ;Выход по BREAK 
-         in a,(#5F)
-          ;Считать состояние принтера 
-         bit 5,a          ;Ошибка? 
-         jr z,PRT_Error   ;Да - выход 
-         bit 4,a          ;Готов? 
-         jr nz,Dr_Prt2    ;Нет- повторить 
-         xor a
-         out (#5F),a   ;Выдать строб 
-         inc a         ;A:=1
-         nop           ;Пауза
-         nop           ; ______
-         out (#5F),a   ; STROBE:=1
-         pop bc:pop de:pop hl:ret
-
-PRT_Error ld sp,(SaveSP)
-          ld a,%01010111:ld hl,#040C
-          ld de,#051D:call OpenWindow
-          call OutFS:DB 22,6,18
-          DB "Printer Error ...",0
-          jp Cat1
+PRT_Error
+        ld sp,(SaveSP)
+        ld a,%01010111
+        ld hl,#040C
+        ld de,#051D
+        call OpenWindow
+        call OutFS
+        DB 22,6,18
+        DB "Printer Error ...",0
+        jp Cat1
 
 PRT_Text   ld hl,(TEXT):ld de,(SPACE)
            jr PRT_0
@@ -330,81 +310,70 @@ PRT_Text   ld hl,(TEXT):ld de,(SPACE)
 PRT_Block  call BlockExist:jp nc,PRINT
            ld hl,(BlockBeg)
            ld de,(BlockEnd)
-PRT_0      call Dr_Init
-PRT_1       ld bc,(PageSize)
-PRT_2        call cp_hl_de:jp nc,MAIN2
-             ld a,(hl):inc hl
-             cp SPC:jr nz,PRT_4
-              push bc:ld b,(hl)
-              inc hl:res 7,b
-PRT_3          ld a,32:call Dr_PrtA
-              djnz PRT_3
-              pop bc:jr PRT_2
-PRT_4        cp 13:jr nz,PRT_5
-              ld a,(hl):cp 10
-              jr nz,$+3:inc hl
-              ld a,13:call Dr_PrtA
-              ld a,10:call Dr_PrtA
-              dec bc:ld a,b:or c
-              jr nz,PRT_2
-              call PRT_Wait:jr PRT_1
-PRT_5        call Dr_PrtA
-            jr PRT_2
+PRT_0      
+PRT_1   ld bc,(PageSize)
+PRT_2   call cp_hl_de
+        jp nc,MAIN2
+        ld a,(hl):inc hl
+        cp SPC:jr nz,PRT_4
+        push bc:ld b,(hl)
+        inc hl:res 7,b
+PRT_3   ld a,32:call Dr_PrtA
+        djnz PRT_3
+        pop bc:jr PRT_2
+PRT_4   cp 13:jr nz,PRT_5
+        ld a,(hl):cp 10
+        jr nz,$+3:inc hl
+        ld a,13:call Dr_PrtA
+        ld a,10:call Dr_PrtA
+        dec bc:ld a,b:or c
+        jr nz,PRT_2
+        call PRT_Wait:jr PRT_1
+PRT_5   call Dr_PrtA
+        jr PRT_2
 
-PRT_Wait   push hl:push de
-           call StoreScrn
-           ld a,%00010111:ld hl,#040C
-           ld de,#0411:call OpenWindow
-           call OutFS
-    DB 22,5,17,"Insert new page than"
-    DB 22,6,18, "press any key ...",0
-           call Waitkey:jr z,$-3
-           call RestoreScrn
-           pop de:pop hl:ret
+PRT_Wait
+        push hl:push de
+        call StoreScrn
+        ld a,%00010111:ld hl,#040C
+        ld de,#0411:call OpenWindow
+        call OutFS
+        DB 22,5,17,"Insert new page than"
+        DB 22,6,18, "press any key ...",0
+        call Waitkey:jr z,$-3
+        call RestoreScrn
+        pop de:pop hl:ret
 
-Page_Size  ld a,%00010111:ld hl,#050C
-           ld de,#051A:call OpenWindow
-           call OutFS
-           DB 22,6,17,"Page Size: ",0
-           ld hl,(PageSize):ld a,3
-           call DecHL:call OutFS
-           DB 22,7,17,"Enter new value:"
-           DB 22,8,25,0
-           ld de,PgSizeBuff:ld c,5
-           call Input:cp 13:jp nz,MAIN2
-           ld a,(de):cp 32:jp c,MAIN2
-           ex de,hl:call MakeNumber
-           ld (PageSize),de:jp MAIN2
+Page_Size
+        ld a,%00010111:ld hl,#050C
+        ld de,#051A:call OpenWindow
+        call OutFS
+        DB 22,6,17,"Page Size: ",0
+        ld hl,(PageSize):ld a,3
+        call DecHL:call OutFS
+        DB 22,7,17,"Enter new value:"
+        DB 22,8,25,0
+        ld de,PgSizeBuff:ld c,5
+        call Input:cp 13:jp nz,MAIN2
+        ld a,(de):cp 32:jp c,MAIN2
+        ex de,hl:call MakeNumber
+        ld (PageSize),de:jp MAIN2
 
 PgSizeBuff DS 6
 
 ;█ █ █ Пункт меню ~SetUp~ █ █ █ 
 
 SETUP   ld a,15:ld hl,#0115
-        ld de,#050D:call OpenWindow
+        ld de,#040D:call OpenWindow
         call OutFS
         DB 22,2,23,"EOLN code"
-        DB 22,3,23,"Compress"
-        DB 22,4,23,"Driver",0
+        DB 22,3,23,"Compress",0
         ld hl,SetUpMenu
         call Menu:jp MAIN2
 
-SetUpMenu DB 0,3
+SetUpMenu DB 0,2
           DB 2,22,11,"e":DW EOLN_Code
           DB 3,22,11,"c":DW Compress
-          DB 4,22,11,"d":DW Driver
-
-Driver  ld a,%00010111:ld hl,#0518
-        ld de,#040A:call OpenWindow
-        call OutFS
-        DB 22,6,26,"Inside"
-        DB 22,7,26,"User's",0
-        ld hl,Driver_Fl:call Menu
-        jp MAIN2
-
-Driver_Fl DB 0,2
-          DB 6,25,8,"i":DW MAIN2
-          DB 7,25,8,"u":DW MAIN2
 
 EOLN_Code ld a,%00010111:ld hl,#0317
           ld de,#0409:call OpenWindow
@@ -432,18 +401,18 @@ Comprs_Fl DB 0,2
 
 ;█ █ █ Пункт меню ~Info~ █ █ █
 
-INFO    ld a,15:ld hl,#0113
-        ld de,#0916:call OpenWindow
+INFO    ld a,15:ld hl,#0B16
+        ld de,#0A25:call OpenWindow
         call OutFS
-        DB 22,2,21,"ZX/IBM Text Editor"
-        DB 22,3,21,"ver.1.0 (Oct.1993)"
-        DB 22,4,21,"Wr. by Hohlov Oleg"
-        DB 22,5,21,"Tel.(0572)68-21-96"
-        DB 22,7,21,"Text Length: ",0
+        DB 22,12,26,"~ Text Editor v1.0 ~"
+        DB 22,14,22,"based on ZX/IBM Text Editor sources"
+        DB 22,15,23,"ver.1.0 (Oct.1993) by Hohlov Oleg"
+        DB 22,16,24,"ported by Mikhaltchenkov Dmitry"
+        DB 22,18,22,"Text Length: ",0
         ld hl,(SPACE):ld de,(TEXT)
         or a:sbc hl,de:ld a,3:call DecHL
         call OutFS
-        DB 22,8,21,"Free Space:  ",0
+        DB 22,19,22,"Free Space:  ",0
         ld hl,(RAMTOP):ld de,(SPACE)
         or a:sbc hl,de:call DecHL
         jp Cat1
