@@ -823,7 +823,7 @@ CMND1   call Pack
         cp 33
         jr nc,CMND_Help
         pop de
-CMND5   call PrintKeyModes
+CMND5   call PrintEdInfo
         scf
         ret
 

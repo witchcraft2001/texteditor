@@ -401,10 +401,10 @@ Comprs_Fl DB 0,2
 
 ;█ █ █ Пункт меню ~Info~ █ █ █
 
-INFO    ld a,15:ld hl,#0B16
-        ld de,#0A25:call OpenWindow
+INFO    ld a,15:ld hl,#0b14
+        ld de,#0A27:call OpenWindow
         call OutFS
-        DB 22,12,26,"~ Text Editor v1.0 ~"
+        DB 22,12,26,"Text Editor v1.0 (Apr.2021)"
         DB 22,14,22,"based on ZX/IBM Text Editor sources"
         DB 22,15,23,"ver.1.0 (Oct.1993) by Hohlov Oleg"
         DB 22,16,24,"ported by Mikhaltchenkov Dmitry"

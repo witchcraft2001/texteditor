@@ -1,0 +1,26 @@
+Text Editor v1.0 (Apr.2021)
+based on ZX/IBM Text Editor sources
+ver.1.0 (Oct.1993) by Hohlov Oleg
+ported for Sprinter by Mikhaltchenkov Dmitry
+
+In current version there are restrictions:
+Maximum text file length is 42Kb
+Maximum line length is 128 symbols
+
+Hot keys in edit mode:
+  F10 - Main menu
+  ESC - Command menu
+
+Functions Command menu:
+  B - Mark block begin
+  E - Mark block end
+  C - Copy block
+  D - Delete block
+  M - Move block
+  Q - Reset block
+  S - Search
+  R - Replace
+  L - Delete line
+  G - Graphics On/Off
+  J - Jump to line ...
+  0..9 - Put decimal
