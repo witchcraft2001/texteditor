@@ -17,6 +17,9 @@ START   ld (SaveSP),sp
         LD HL,MsgNoMemory
 .exit	LD C,Dss.PChars
 	RST #10
+        ld hl,Enter
+        LD C,Dss.PChars
+	RST #10
         LD A,(hMem)
         and a
         jr z,.skip
@@ -42,7 +45,7 @@ START   ld (SaveSP),sp
         pop de
         ld a,(de)
         and a
-        jp z,MAIN1
+        jp z,.empty
         ex de,hl
         push hl
         ld bc,Dss.EX_Path               ;разобрать строку - проверить получить имя файла
@@ -55,16 +58,22 @@ START   ld (SaveSP),sp
         ld hl,(TEXT)
         ld a,1
         call LoadTextFile
-        jr c,.nofile
+        jr c,.exit
         ld hl,FlNameBuff
         call CopyFileName
         jp MAIN1
 .nofile ld hl,MsgCantOpen
         jr .exit
+.empty  ld hl,(TEXT)
+        ld (hl),13
+        inc hl
+        ld (hl),0
+        jp MAIN1
 MsgNoMemory
-        db	"Not enough memory to load program.", 0x0D, 0x0A, 0x00
+        db "Not enough memory to load program.", 0x00
 MsgCantOpen
-        db	"Error: Can't open file", 0x0D, 0x0A, 0x00
+        db "Error: Can't open file", 0x00
+Enter   db 0x0D, 0x0A, 0x00
         org ($/256+1)*256
 
 TEXT    DW StartText                ;Начало текста
@@ -409,6 +418,12 @@ Check_SS push bc:ld c,a:ld a,127:ld b,2
 
 Inkey   push hl
         ld c,Dss.ScanKey
+        call CallDss
+        pop hl
+        ret
+
+Waitkey push hl
+        ld c,Dss.WaitKey
         call CallDss
         pop hl
         ret

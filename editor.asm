@@ -322,7 +322,7 @@ Ovrfl1   ld sp,(SaveSP):push hl
          DB 22,13,14,"Press any key"
          DB 22,11,12,0
          pop hl:call OutHL:call Beep
-Ovrfl2   call Inkey:jr z,Ovrfl2
+Ovrfl2   call Waitkey:jr z,Ovrfl2
          jp MAIN1
 
 DiskFull ld hl,DFullMssg:jr Ovrfl1
@@ -383,11 +383,11 @@ PrModes4
         bit 2,(hl)
         jr z,PrModes5
         call OutFS
-        DB "Insert",SPC,6-4,0
+        DB "Insert",SPC,6,0
         jr PrModes6
 PrModes5
         call OutFS
-        DB SPC,12-4,0
+        DB SPC,12,0
 PrModes6
         pop hl
         ret
@@ -404,7 +404,7 @@ PrintCurCol
          call OutFS
          DB 22,31,34,16,%00111000,"Col ",0
          ld a,(CurCol):ld l,a:ld h,0
-         inc hl:ld c,0:jr PrintLN1
+         inc hl:ld c,46:jr PrintLN1
 
 PrintFilename
          call OutFS
@@ -414,15 +414,17 @@ PrintFilename
 
 PrintChrCode
          call OutFS
-         DB 22,31,19,16,%00111010,0
+         DB 22,31,46,16,%00111010,0
          call CurChrAddr:ld l,(hl)
-         ld h,0:ld c,23:jr PrintLN1
+         ld h,0:ld c,49:jr PrintLN1
 
 PrintEdInfo
        call PrintMenu
        call PrintKeyModes
        call PrintLineNum
        call PrintCurCol
+       ld c,80-19
+       call PrintLN2
        call PrintFilename
        ret
 
@@ -848,7 +850,7 @@ CMND_Help
         DB 22,21,#1C,"J - Jump to line ..."
         DB 22,23,#1C,"0..9 - Put decimal"
         DB " code",0
-C_Help1 call Inkey
+C_Help1 call Waitkey
         jr z,C_Help1
         ret
 

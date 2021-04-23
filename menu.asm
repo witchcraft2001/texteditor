@@ -17,29 +17,25 @@ Prt_HL_e
 ;█ █ █ Пункт меню ~File~ █ █ █ 
 
 FILES   ld a,15:ld hl,#0101
-        ld de,#0A0E:call OpenWindow
+        ld de,#080E:call OpenWindow
         call OutFS
         DB 22,2,3,"Save"
         DB 22,3,3,"Load"
-        DB 22,4,3,"Catalogue"
-        DB 22,5,3,"New"
-        DB 22,6,3,"save Block"
-        DB 22,7,3,"Merge"
-        DB 22,8,3,"Erase file"
-        DB 22,9,3,"Quit",0
+        DB 22,4,3,"New"
+        DB 22,5,3,"save Block"
+        DB 22,6,3,"Merge"
+        DB 22,7,3,"Quit",0
         ld hl,FileMenu
         call Menu
         jp MAIN2
 
-FileMenu DB 0,8
+FileMenu DB 0,6
          DB 2,2,12,"s":DW SaveText
          DB 3,2,12,"l":DW LoadText
-         DB 4,2,12,"c":DW Catalogue
-         DB 5,2,12,"n":DW New
-         DB 6,2,12,"b":DW SaveBlock
-         DB 7,2,12,"m":DW Merge
-         DB 8,2,12,"e":DW Erase
-         DB 9,2,12,"q":DW Quit
+         DB 4,2,12,"n":DW New
+         DB 5,2,12,"b":DW SaveBlock
+         DB 6,2,12,"m":DW Merge
+         DB 7,2,12,"q":DW Quit
 
 Quit    call WinBack
         ld sp,(SaveSP)
@@ -104,21 +100,6 @@ CleanFileName
         pop de
         ret
 hFile   db 0
-FileName
-        ds 128
-FlNameBuff DS 128
-; MergeBuff  DS 13
-EraseBuff  DS 13
-
-Erase   ld h,9
-        ld de,EraseBuff
-        call InpFlName
-        jp c,MAIN2
-        ; call Check_Disk         ;todo: Реализовать под DSS
-        ; jp nc,IBM_Erase
-        ; ld c,#12
-        ; call 15635
-        jp MAIN2
 
 SaveText
         ld hl,FileName
@@ -160,14 +141,7 @@ SvText1 ex de,hl
         call OpenWindow
         call OutFS
         DB 22,8,13,"Writing error ...",0
-        ;  call Check_Disk        ;todo: Реализовать под DSS
-        ;  jp nc,IBM_Save
-        ;  push hl:push de
-        ;  ld c,#12:call 15635 ;Erase file
-        ;  pop de:pop hl
-        ;  ld c,#0B:call 15635 ;Save file
-        ;  ld a,c:or b:jp nz,DiskFull
-        call Inkey
+        call Waitkey
         jp EDIT
 
 SaveBlock
@@ -181,14 +155,6 @@ SaveBlock
         ld de,(BlockEnd)
         jr SvText1
 
-Catalogue 
-        ; call Check_Disk       ;todo: Реализовать под DSS
-        ; jp nc,IBM_Cat
-        ;   ld a,2:ld c,7:call 15635
-Cat1       call Inkey
-          jr z,Cat1
-          jp MAIN2
-
 Merge   ld h,8
         ld de,FlNameBuff
         call InpFlName
@@ -196,9 +162,13 @@ Merge   ld h,8
         ld hl,(SPACE)
         xor a
         call LoadTextFile
-        jp c,Cat1
-        jp EDIT
+        jp nc,EDIT
+Cat1    call Waitkey
+        jr z,Cat1
+        jp MAIN2
 
+FileName   ds 128
+FlNameBuff ds 128
 
 LoadText
         ld h,4
@@ -233,8 +203,11 @@ LoadTextFile
         ld hl,#0709
         ld de,#031A:call OpenWindow
         call OutFS
-        DB 22,8,13,"File not found ...",0
-.exit   scf
+        DB 22,8,13
+.fileNotFound
+        db "File not found ...",0
+.exit   ld hl,LoadTextFile.fileNotFound
+        scf
         ret
 LoadTxt2
         ld (hFile),a
@@ -250,6 +223,7 @@ LoadTxt2
         pop hl
         jr nc,LoadTxt21
         ld a,(LoadTextFile.flag)
+        ld hl,.readError
         and a
         scf
         ret nz
@@ -258,10 +232,12 @@ LoadTxt2
         ld de,#0319
         call OpenWindow
         call OutFS
-        DB 22,8,13,"Reading error ...",0
+        DB 22,8,13
+.readError
+        db "Reading error ...",0
         scf
         ret
-LoadTxt21
+LoadTxt21        
         add hl,de
         ld (SPACE),hl
         ld (hl),0
@@ -274,9 +250,8 @@ LoadTxt4
         dec hl
         ld (hl),13
         call RemoveBlock
-        and a
+.end    and a
         ret
-
 CloseFile
         push af
         push hl
@@ -383,7 +358,7 @@ PRT_Wait   push hl:push de
            call OutFS
     DB 22,5,17,"Insert new page than"
     DB 22,6,18, "press any key ...",0
-           call Inkey:jr z,$-3
+           call Waitkey:jr z,$-3
            call RestoreScrn
            pop de:pop hl:ret
 
