@@ -151,7 +151,8 @@ WinBack	LD DE,#0000
 	DI
 	call CallDss
 	EI
-	LD DE,(SavePosition)
+	LD DE,0
+SavePosition equ $-2
 	LD C,Dss.Locate
 	call CallDss
 	RET

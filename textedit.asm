@@ -17,7 +17,6 @@ EXEhead
 	dw	0, 0			; +10
 	dw	0			; +14
 	dw	EntryExec		; +16
-SavePosition
 	dw	EntryExec
 	dw	EntryExec - #80
 EntryExec

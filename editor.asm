@@ -414,7 +414,7 @@ PrintFilename
 
 PrintChrCode
          call OutFS
-         DB 22,31,46,16,%00111010,0
+         DB 22,31,46,16,%00111000,0
          call CurChrAddr:ld l,(hl)
          ld h,0:ld c,49:jr PrintLN1
 
