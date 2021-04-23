@@ -677,27 +677,27 @@ Input5  ld a,13
         ld (de),a
         jr Input1
 
-Input6  pop de
-        cp #1b
+Input6  cp #1b
         jr z,.exit
         cp 8
-        jr z,Input10
+        jr z,.backsp
         cp 13
         jr z,.exit
         ld a,d
         cp #4f
-        jr z,Input7
-        cp #58          ;Cursor Up
-        jr z,Input7
-        cp #52          ;Cursor Down
-        jr z,Input7
+        jr z,.delete
+        cp #54          ;Cursor Left
+        jr z,.backsp
+        pop de
         jr Input4
 .exit   call Beep
+        pop de
         pop de
         pop bc
         pop hl
         ret
-Input7  ld a,b
+.backsp pop de
+        ld a,b
         cp c     ;Delete
         jr z,Input4
         call Beep
@@ -705,17 +705,18 @@ Input7  ld a,b
         ld a,13
         ld (de),a
         jr Input1
-Input10 call Beep       ; "<-" BackSpace
+.delete call Beep       ; "<-" BackSpace
+        pop de
         pop de
         push de
         ld a,13
         ld (de),a
         ld hl,(PrintXY)
         ld b,c
-Input11 ld a,32
+.loop   ld a,32
         call PrintA
         inc l
-        djnz Input11
+        djnz .loop
         jp Input1
 
 ; CapsLock
