@@ -423,7 +423,6 @@ Waitkey push hl
 ; Е - ASCII код
 ; C - режим клавиатуры:
 ReadKey push hl
-        push bc
 RdKey0  call PutCursor
         ld hl,WaitConst
 RdKey1  
@@ -435,6 +434,7 @@ RdKey1
         jr nz,RdKey1
         jr RdKey0
 RdKey2  ld h,a
+        push bc
         ld a,c
         and 1
         bit 7,c
@@ -451,8 +451,8 @@ RdKey2  ld h,a
         bit 1,a
         call nz,.graphOff
         call ClearCursor
-        ld a,h
         pop bc
+        ld a,h
         pop hl
         ret
 .graphOff
@@ -611,7 +611,9 @@ Input3  ld (CurX),hl
         ld a,32
         call PrintA
 Input4  push de
+        push bc
         call ReadKey
+        pop bc
         ld a,e
         cp 32
         jr c,Input6

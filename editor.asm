@@ -270,33 +270,58 @@ PtrSH   DW 0
 PtrDL   DW 0
 PtrDH   DW 0
 
-InsText pop de:ld a,4     ;Get arguments
+InsText pop de
+        ld a,4     ;Get arguments
         ld hl,PtrDH+1
-InsTxt1  pop bc:ld (hl),b:dec hl
-         ld (hl),c:dec hl:dec a
+InsTxt1 pop bc
+        ld (hl),b
+        dec hl
+        ld (hl),c
+        dec hl
+        dec a
         jr nz,InsTxt1
-        push de:ld hl,(PtrSH) ;Calculate
-        or a:sbc hl,bc        ;offset
-        ld bc,(PtrDL):add hl,bc
-        ld bc,(PtrDH):or a:sbc hl,bc
-        ld b,h:ld c,l         ;BC=OffSet
-        ld hl,(SPACE):push hl
+        push de
+        ld hl,(PtrSH) ;Calculate
+        or a
+        sbc hl,bc        ;offset
+        ld bc,(PtrDL)
+        add hl,bc
+        ld bc,(PtrDH)
+        or a
+        sbc hl,bc
+        ld b,h
+        ld c,l         ;BC=OffSet
+        ld hl,(SPACE)
+        push hl
         jp m,InsTxt2          ;if(BC<0)
-         add hl,bc:jp c,Overflow
-         jr InsTxt3
+        add hl,bc
+        jp c,Overflow
+        jr InsTxt3
 InsTxt2 add hl,bc
-InsTxt3 ex de,hl:ld hl,(RAMTOP)
-        or a:sbc hl,de:jp c,Overflow
-        ld (SPACE),de:ld de,(PtrDH)
+InsTxt3 ex de,hl
+        ld hl,(RAMTOP)
+        or a
+        sbc hl,de
+        jp c,Overflow
+        ld (SPACE),de
+        ld de,(PtrDH)
         ld hl,BlockBeg:call _shift
         ld hl,BlockEnd:call _shift
         ld hl,PtrSL:call _shift
         ld hl,PtrSH:call _shift
-        ld h,d:ld l,e:add hl,bc:ex de,hl
-        pop bc:call MoveMem:ld hl,(PtrSL)
-        ld de,(PtrDL):ld bc,(PtrSH)
-        call MoveMem:ld hl,(SPACE)
-        ld (hl),0:ret
+        ld h,d
+        ld l,e
+        add hl,bc
+        ex de,hl
+        pop bc
+        call MoveMem
+        ld hl,(PtrSL)
+        ld de,(PtrDL)
+        ld bc,(PtrSH)
+        call MoveMem
+        ld hl,(SPACE)
+        ld (hl),0
+        ret
 
 Pack    push hl
         push de
@@ -404,7 +429,7 @@ PrintCurCol
          call OutFS
          DB 22,31,34,16,%00111000,"Col ",0
          ld a,(CurCol):ld l,a:ld h,0
-         inc hl:ld c,46:jr PrintLN1
+         inc hl:ld c,42:jr PrintLN1
 
 PrintFilename
          call OutFS
@@ -414,7 +439,7 @@ PrintFilename
 
 PrintChrCode
          call OutFS
-         DB 22,31,46,16,%00111000,0
+         DB 22,31,42,16,%00111000,0
          call CurChrAddr:ld l,(hl)
          ld h,0:ld c,49:jr PrintLN1
 
@@ -502,7 +527,17 @@ EDIT4   call ReadKey
         cp #51
         jp z,ENDLN
         call PrintKeyModes
-        pop de
+        bit 5,b                 ;Ctrl
+        jr z,.next
+        ld a,d
+        and #7f
+        cp #15                  ;ctrl+y
+        jp z,DeleteLine
+        CP #57                  ;Ctrl+PgUp
+        jp z,JumpBegTxt
+        CP #51		        ;Ctrl+PgDn
+        jp z,JumpEndTxt
+.next   pop de
         jr EDIT4
 .insert pop hl
         ld b,a
@@ -806,7 +841,7 @@ CMND1   call Pack
         ld de,CMND5
         push de
         call toupper
-        ld b,13
+        ld b,11
         call Case
         DB "B":DW MarkBeg
         DB "E":DW MarkEnd
@@ -815,8 +850,6 @@ CMND1   call Pack
         DB "M":DW MoveBlock
         DB "Q":DW ResetBlock
         DB "L":DW DeleteLine
-        DB 10 :DW JumpEndTxt
-        DB 11 :DW JumpBegTxt
         DB "J":DW JumpLine
         DB "S":DW Search
         DB "R":DW Replace
@@ -832,7 +865,7 @@ CMND_Help
         call OutFS
         DB "Help",0
         ld hl,#071A
-        ld de,#121B
+        ld de,#101B
         ld a,15
         call OpenWindow
         call OutFS
@@ -846,11 +879,8 @@ CMND_Help
         DB 22,16,#1C,"R - Replace"
         DB 22,17,#1C,"L - Delete line"
         DB 22,18,#1C,"G - Graphics On/Off"
-        DB 22,19,#1C,24," - Jump to begin"
-        DB 22,20,#1C,25," - Jump to end"
-        DB 22,21,#1C,"J - Jump to line ..."
-        DB 22,23,#1C,"0..9 - Put decimal"
-        DB " code",0
+        DB 22,19,#1C,"J - Jump to line ..."
+        DB 22,21,#1C,"0..9 - Put decimal code",0
 C_Help1 call Waitkey
         jr z,C_Help1
         ret
@@ -900,18 +930,37 @@ DelBl1     push de:call InsText
 ResetBlock ld hl,(BlockBeg)
            ld (BlockEnd),hl:ret
 
-DeleteLine ld hl,(LineAddr)
-           push hl:push hl:push hl
-           ld bc,0:ld a,13:cpir:ld a,(hl)
-           cp 10:jr nz,$+3:inc hl
-           ld de,(SPACE):call cp_hl_de
-           jr c,DelLine1
-            dec hl:ld a,(hl):cp 10
-            jr nz,$+3:dec hl
-DelLine1   push hl:call InsText:ret
+DeleteLine
+        ld hl,(LineAddr)
+        push hl
+        push hl
+        push hl
+        ld bc,0
+        ld a,13
+        cpir
+        ld a,(hl)
+        cp 10
+        jr nz,$+3
+        inc hl
+        ld de,(SPACE)
+        call cp_hl_de
+        jr c,DelLine1
+        dec hl
+        ld a,(hl)
+        cp 10
+        jr nz,$+3
+        dec hl
+DelLine1
+        push hl
+        call InsText
+        scf
+        ret
 
 JumpEndTxt ld bc,65535
-JumpTxt1   call SetLnAddr:ret
+JumpTxt1
+        call SetLnAddr
+        scf
+        ret
 
 JumpBegTxt ld bc,0:jr JumpTxt1
 
@@ -1011,10 +1060,12 @@ Rplc1   push bc
         DB SPC,26,"Replace ?",SPC,3
         DB "(Yes/All/No/Quit)",SPC,25,0
         pop bc
-Rplc2   call ReadKey
+Rplc2   push bc
+        call ReadKey
         push af
         call Beep
         pop af
+        pop bc
         cp "q"
         ret z
         cp "y"
