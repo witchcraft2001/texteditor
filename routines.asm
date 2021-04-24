@@ -401,19 +401,6 @@ CurFlag equ $-1
 ;  ДPAИBEP KЛABИATУPЫ 
 ;_______________________
 
-;ПPOBEPKA HAЖATИЯ CAPS SHIFT
-; BЫXOД: Z,ECЛИ HAЖATA
-
-Check_CS push bc:ld c,a:ld a,254:ld b,1
-Chk_CS1  in a,(254):and b:ld a,c:pop bc
-         ret
-
-;ПPOBEPKA HAЖATИЯ SYMBOL SHIFT
-; BЫXOД: Z,ECЛИ HAЖATA
-
-Check_SS push bc:ld c,a:ld a,127:ld b,2
-         jr Chk_CS1
-
 ;BEPHУTЬ KOД CИMBOЛA C УЧETOM Rus/Lat И
 ;Caps/Lock ИЛИ ZF=1,ЕСЛИ KЛABИШA НЕ НАЖАТА
 
@@ -428,45 +415,6 @@ Waitkey push hl
         call CallDss
         pop hl
         ret
-;    bit 5,(iy+1):ret z:res 5,(iy+1)
-;         ld a,(23560):cp 32:jr nz,Inkey2
-;          call Check_CS:jr nz,Inkey1
-;           sub 13:ret ;a=19,z=0
-; Inkey1   call Check_SS:ret nz
-;           sub 12:ret ;a=20,z=0
-; Inkey2  call Subst:DB 11
-;         DB 226,"~",195,"|",205,"\\"
-;         DB 204,"{",203,"}",198,"["
-;         DB 197,"]",172,"",199,16
-;         DB 201,17,200,18
-;         push hl:ld hl,KeyModes
-;         call isalpha:jr nc,Inkey3
-;         bit 0,(hl) ;Caps/Lock
-;         jr z,Inkey3:xor #20
-; Inkey3  bit 1,(hl) ;Rus/Lat
-;         jr nz,Inkey4:jr InkeyE
-; Inkey4  call Subst:DB 6
-;         DB "~",#97,"|",#9D,"\\",#9A
-;         DB "{",#98,"}",#99,"`",#9E
-;         cp #80:jr c,Inkey5
-;         bit 0,(hl) ;Caps/Lock
-;         jr nz,Inkey5:add a,#50
-; Inkey5  call isalpha:jr nc,InkeyE
-;         sub #41:push de:ld de,RusTable
-;         call XLAT_b:pop de
-; InkeyE  pop hl:or a ;ZF:=0
-;         ret
-; RusTable
-;         DB #80,#81,#96,#84,#85,#94
-;         DB #83,#95,#88,#89,#8A,#8B
-;         DB #8C,#8D,#8E,#8F,#9F,#90
-;         DB #91,#92,#93,#86,#82,#9C
-;         DB #9B,#87,"[\\]^_`"
-;         DB #A0,#A1,#E6,#A4,#A5,#E4
-;         DB #A3,#E5,#A8,#A9,#AA,#AB
-;         DB #AC,#AD,#AE,#AF,#EF,#E0
-;         DB #E1,#E2,#E3,#A6,#A2,#EC
-;         DB #EB,#A7
 
 ;BEPHУTЬ KOД CИMBOЛA C OЖИДAHИEM НАЖАТИЯ
 ; И BЫBOДOM KУPCOPA
@@ -497,7 +445,7 @@ RdKey2  ld h,a
         set 2,a
 .next1  ld c,a
         ld a,(KeyModes)
-        and %11111100
+        and %11111000
         or c
         ld (KeyModes),a
         bit 1,a

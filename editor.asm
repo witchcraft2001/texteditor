@@ -501,6 +501,7 @@ EDIT4   call ReadKey
         jp z,HOME
         cp #51
         jp z,ENDLN
+        call PrintKeyModes
         pop de
         jr EDIT4
 .insert pop hl
