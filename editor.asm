@@ -181,30 +181,58 @@ SetLnAttr ld a,ScrnAttr:ld de,(BlockEnd)
 ;BЫXOД: HL-CЛEД.CTPOKA.ECЛИ
 ;HL BЫШE TEKCTA,TO BOЗBPAT,HL
 ;HE MEHЯETCЯ,B БУФEPE ПPOБEЛЫ.
-
-Unpack push bc:push hl:ld hl,LineBuff
-       ld bc,144:ld de,LineBuff+1
-       ld (hl),32:ldir:pop hl
-       ld de,(SPACE):call cp_hl_de
-       jr nc,Unpk3:ld de,LineBuff
-       ld b,128
-Unpk0    ld a,(hl):inc hl
-         cp SPC:jr z,UnpSPC
-         cp 9:jr z,UnpTAB
-         cp 13:jr z,Unpk3
-Unpk1    ld (de),a:inc de
-       djnz Unpk0
-Unpk2  ld bc,0:ld a,13:cpir
-Unpk3  ld a,(hl):cp 10:jr nz,$+3:inc hl
-       pop bc:ret
-UnpTAB ld a,e:sub low LineBuff:cpl          ;Было "sub LineBuff"
-       and 7:inc a:jr Unpk4
-UnpSPC ld a,(Comprs_Fl):or a
-       ld a,SPC:jr z,Unpk1
-       ld a,(hl):inc hl:res 7,a
-Unpk4   inc de:dec a:jr z,Unpk0
-       djnz Unpk4
-       jr Unpk2
+Unpack  push bc
+        push hl
+        ld hl,LineBuff
+        ld bc,144
+        ld de,LineBuff+1
+        ld (hl),32
+        ldir
+        pop hl
+        ld de,(SPACE)
+        call cp_hl_de
+        jr nc,Unpk3
+        ld de,LineBuff
+        ld b,128
+Unpk0   ld a,(hl)
+        inc hl
+        cp SPC
+        jr z,UnpSPC
+        cp 9
+        jr z,UnpTAB
+        cp 13
+        jr z,Unpk3
+Unpk1   ld (de),a
+        inc de
+        djnz Unpk0
+Unpk2   ld bc,0
+        ld a,13
+        cpir
+Unpk3   ld a,(hl)
+        cp 10
+        jr nz,$+3
+        inc hl
+        pop bc
+        call SetUnmodifiedLine
+        ret
+UnpTAB  ld a,e
+        sub low LineBuff        ;Было "sub LineBuff"
+        cpl          
+        and 7
+        inc a
+        jr Unpk4
+UnpSPC  ld a,(Comprs_Fl)
+        or a
+        ld a,SPC
+        jr z,Unpk1
+        ld a,(hl)
+        inc hl
+        res 7,a
+Unpk4   inc de
+        dec a
+        jr z,Unpk0
+        djnz Unpk4
+        jr Unpk2
 
 ;ПEЧATЬ CTPOKИ ИЗ БУФEPA PACПAKOBЩИKA.
 ; BXOД: a-HOMEP CTPOKИ HA ЭKPAHE
@@ -228,42 +256,97 @@ PrintLine push hl
           pop hl
           ret
 
-PackBuff push hl:push bc
-         ld hl,LineBuff
-         ld d,h:ld e,l:ld b,128
-Pack1     ld c,0
-Pack2      ld a,(hl):cp 32:jr nz,Pack3
-           inc c:inc hl
-          djnz Pack2:jr Pack6
-Pack3     cp 13:jr z,Pack5
-          ld a,c:or a:jr z,Pack5
-            cp 1:ld a,32:jr z,Pack4
-            ld a,(Comprs_Fl):or a
-            ld a,32:jr z,Pack7
-            ld a,SPC:ld (de),a:inc de
-            ld a,c:set 7,a
-Pack4       ld (de),a:inc de
-Pack5     ld a,(hl):ld (de),a
-          inc de:inc hl
-         DJNZ Pack1
-Pack6    ld a,13:ld (de),a:pop bc:pop hl
-         ld a,(EOLN_Fl):or a:ret z
-         inc de:ld a,10:ld (de),a:ret
-Pack7    ld (de),a:inc de:dec c
-         jr nz,Pack7:jr Pack5
+PackBuff
+        push hl
+        push bc
+        ld hl,LineBuff
+        ld d,h
+        ld e,l
+        ld b,128
+Pack1   ld c,0
+Pack2   ld a,(hl)
+        cp 32
+        jr nz,Pack3
+        inc c
+        inc hl
+        djnz Pack2
+        jr Pack6
+Pack3   cp 13
+        jr z,Pack5
+        ld a,c
+        or a
+        jr z,Pack5
+        cp 1
+        ld a,32
+        jr z,Pack4
+        ld a,(Comprs_Fl)
+        or a
+        ld a,32
+        jr z,Pack7
+        ld a,SPC
+        ld (de),a
+        inc de
+        ld a,c
+        set 7,a
+Pack4   ld (de),a
+        inc de
+Pack5   ld a,(hl)
+        ld (de),a
+        inc de
+        inc hl
+        DJNZ Pack1
+Pack6   ld a,13
+        ld (de),a
+        pop bc
+        pop hl
+        ld a,(EOLN_Fl)
+        or a
+        ret z
+        inc de
+        ld a,10
+        ld (de),a
+        ret
+Pack7   ld (de),a
+        inc de
+        dec c
+        jr nz,Pack7
+        jr Pack5
 
-_shift  push hl:ld a,(hl):inc hl:ld h,(hl)
-        ld l,a:call cp_hl_de:jr c,_shift1
-         add hl,bc:ex de,hl:ex (sp),hl
-         ld (hl),e:inc hl:ld (hl),d
-         dec hl:ex (sp),hl:ex de,hl
-_shift1 pop hl:ret
+_shift  push hl
+        ld a,(hl)
+        inc hl
+        ld h,(hl)
+        ld l,a
+        call cp_hl_de
+        jr c,_shift1
+        add hl,bc
+        ex de,hl
+        ex (sp),hl
+        ld (hl),e
+        inc hl
+        ld (hl),d
+        dec hl
+        ex (sp),hl
+        ex de,hl
+_shift1 pop hl
+        ret
 
-InsLine ld hl,LineBuff:push hl
-        inc de:push de:ld hl,(LineAddr)
-        push hl:ld a,13:ld bc,0:cpir
-        ld a,(hl):cp 10:jr nz,$+3:inc hl
-        push hl:call InsText:ret
+InsLine ld hl,LineBuff
+        push hl
+        inc de
+        push de
+        ld hl,(LineAddr)
+        push hl
+        ld a,13
+        ld bc,0
+        cpir
+        ld a,(hl)
+        cp 10
+        jr nz,$+3
+        inc hl
+        push hl
+        call InsText
+        ret
 
 PtrSL   DW 0
 PtrSH   DW 0
@@ -321,19 +404,22 @@ InsTxt3 ex de,hl
         call MoveMem
         ld hl,(SPACE)
         ld (hl),0
-        call SetModified
         ret
 
-Pack    push hl
+Pack    push af
+        ld a,(IsModifiedLine)
+        and a
+        jr z,.end
+        push hl
         push de
         push bc
-        push af
         call PackBuff
         call InsLine
-        pop af
+        call SetUnmodifiedLine
         pop bc
         pop de
         pop hl
+.end    pop af
         ret
 
 ;_____________________
@@ -575,7 +661,7 @@ EDIT5   push af
         call MoveMem
 EDIT6   pop af
         ld (hl),a
-        call SetModified
+        call SetModifiedLine
         call RIGHT
         jp EDIT1
 
@@ -583,20 +669,34 @@ Graph_Fl DB 0
 
 IsModified
         db 0
+IsModifiedLine
+        db 0
 
 Graph_Table
         DB #C7, #D4, #BD, #B6, #B7, #BA, #C6, #D8, #CD, #B5, #B3, #DB, #BE, #CF, #DD, #DE, #D6, #C4, #D7, #D5, #B8, #F0, #D2, #D0, #D1, #D3 
         DB 0,0,0,0,0,0
         DB #C3, #C8, #D9, #B4, #BF, #B3, #CC, #CE, #CD, #B9, #BA, #B0, #BC, #CA, #B1, #B2, #DA, #C4, #C5, #C9, #BB, #FB, #C2, #C1, #CB, #C0 
 
-MAINMENU pop de:call Pack:jp MAIN3
+MAINMENU
+        pop de
+        call Pack
+        jp MAIN3
 
-SetUnmodified
+SetUnmodifiedFile
         xor a
-        jr SetModified.set
-SetModified
+        jr SetModifiedFile.set
+SetModifiedFile
         ld a,1
 .set    ld (IsModified),a
+        ret
+
+SetUnmodifiedLine
+        xor a
+        jr SetModifiedLine.set
+SetModifiedLine
+        call SetModifiedFile
+        ld a,1        
+.set    ld (IsModifiedLine),a
         ret
 
 SetBegCol
@@ -736,7 +836,7 @@ LeadSpc2
         ld a,b
         ret
 
-ENTER   call SetModified
+ENTER   call SetModifiedFile
         ld a,(KeyModes)
         bit 2,a
         jr z,ENTER1
@@ -793,7 +893,7 @@ ENTER6  ld (CurCol),a
         scf
         ret
 
-DELETE  call SetModified
+DELETE  call SetModifiedLine
         call CurChrAddr
         ld bc,LineBuff+129
         ld a,(KeyModes)
@@ -1051,7 +1151,7 @@ ResetBlock
         ret
 
 DeleteLine
-        call SetModified
+        call SetModifiedFile
         ld hl,(LineAddr)
         push hl
         push hl
@@ -1213,7 +1313,8 @@ SrchNFnd
 Replace call OutFS
         DB "Replace",0
         call Pattern
-        res 0,(iy+2)
+        xor a
+        ld (Replace.all),a
         call OutFS
         DB 22,4,11,"Replace with:"
         DB 22,5,9,SPC,15,22,5,9,0
@@ -1224,13 +1325,15 @@ Replace call OutFS
         ret nz
         call FindStr
         jr c,SrchNFnd
-Rplc1   push bc
+.loop   push bc
         call PrintLineNum
         call PrintCurCol
         call PrintModified
         pop bc
-        bit 0,(iy+2)
-        jr nz,Rplc5
+        ld a,0
+.all    equ $-1        
+        and a
+        jr nz,.replace
         push bc
         call LIST
         ld hl,(LineAddr)
@@ -1241,7 +1344,7 @@ Rplc1   push bc
         DB SPC,26,"Replace ?",SPC,3
         DB "(Yes/All/No/Quit)",SPC,25,0
         pop bc
-Rplc2   push bc
+.loop1  push bc
         call ReadKey
         push af
         call Beep
@@ -1250,20 +1353,22 @@ Rplc2   push bc
         cp "q"
         ret z
         cp "y"
-        jr z,Rplc5
+        jr z,.replace
         cp "a"
-        jr z,Rplc4
+        jr z,.setAll
         cp "n"
-        jr nz,Rplc2
-Rplc3   call FindStr
-        jr nc,Rplc1:ret
-Rplc4   set 0,(iy+2)
+        jr nz,.loop1
+.loop2  call FindStr
+        jr nc,.loop:ret
+.setAll ld a,1
+        ld (Replace.all),a
         push bc
         call LIST
         ld hl,(LineAddr)
         call Unpack
         pop bc
-Rplc5   call SetModified
+.replace
+        call SetModifiedLine
         ld hl,LineBuff
         ld e,c
         ld d,0
@@ -1274,11 +1379,11 @@ Rplc5   call SetModified
         pop de
         push de
         ld bc,RplcBuff
-Rplc6   ld a,(bc)
+.loop3  ld a,(bc)
         cp 32
         inc bc
         inc de
-        jr nc,Rplc6
+        jr nc,.loop3
         dec de
         ld a,e
         sub low LineBuff ;Было "sub LineBuff", возможно сейчас не правильно написал
@@ -1293,15 +1398,15 @@ Rplc6   ld a,(bc)
         call MoveMem
         ld hl,RplcBuff
         pop de
-Rplc7   ld a,(hl)
+.loop4  ld a,(hl)
         cp 13
-        jr z,Rplc8
+        jr z,.next
         ld (de),a
         inc de
         inc hl
-        jr Rplc7
-Rplc8   call Pack
-        jr Rplc3
+        jr .loop4
+.next   call Pack
+        jr .loop2
 
 EditorPages
 .Pg0		db	#00

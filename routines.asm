@@ -142,10 +142,10 @@ WinSave	LD C,Dss.Cursor
 	EI
 	RET
 
-WinBack	LD DE,#0000
+WinBack	LD IX,SCR_BUF
+.back	LD DE,#0000
 	LD HL,#2050
-	LD IX,SCR_BUF
-.back	LD C,Dss.WinRest
+        LD C,Dss.WinRest
         ld a,(EditorPages.Pg2)
         ld b,a
 	DI
@@ -264,7 +264,6 @@ tolower call isupper
         ret
 
 ;APИФMETИЧECKИE ПPOЦEДУPЫ 
-
 cp_hl_de push hl:or a:sbc hl,de
          pop hl:ret
 
@@ -274,18 +273,29 @@ cp_de_hl ex de,hl:push hl
          ret
 
 ;KOПИPOBAHИE ПAMЯTИ 
-
 MoveMem ld a,c               ;BC=BC-HL
-        sub l:ld c,a:ld a,b
-        sbc a,h:ld b,a
-        or c:ret z           ;BC=0.
-        call cp_hl_de:ret z  ;HL=DE.
-        push hl:jr c,MoveM1
-        ldir:jr MoveM2
-MoveM1  add hl,bc:dec hl
-        ex de,hl:add hl,bc
-        dec hl:ex de,hl:lddr
-MoveM2  pop hl:ret
+        sub l
+        ld c,a
+        ld a,b
+        sbc a,h
+        ld b,a
+        or c
+        ret z           ;BC=0.
+        call cp_hl_de
+        ret z  ;HL=DE.
+        push hl
+        jr c,MoveM1
+        ldir
+        jr MoveM2
+MoveM1  add hl,bc
+        dec hl
+        ex de,hl
+        add hl,bc
+        dec hl
+        ex de,hl
+        lddr
+MoveM2  pop hl
+        ret
 
 ; ШAПKA ФУHKЦИИ,ПOЛУЧAЮЩEИ
 ; ПAPAMETPЫ ЧEPEЗ CTEK.

@@ -37,7 +37,27 @@ FileMenu DB 0,6
          DB 6,2,12,"m":DW Merge
          DB 7,2,12,"q":DW Quit
 
-Quit    call WinBack
+Quit    ld a,(IsModified)
+        and a
+        jr z,SureQuit
+        ld a,15
+        ld hl,#0D1B
+        ld de,#061A:call OpenWindow
+        call OutFS
+        DB 22,14,31,"File is not saved!"
+        DB 22,15,30,"Do you want to quit?"
+        DB 22,17,35,"Yes      No",0        
+        ld hl,NotSavedMenu
+        call Menu
+        jp MAIN2
+
+NotSavedMenu
+        DB 0,2
+        DB 17,33,7,"y":DW SureQuit
+        DB 17,42,6,"n":DW MAIN2
+
+SureQuit
+        call WinBack
         ld sp,(SaveSP)
         ld a,(hMem)
         ld c,Dss.FreeMem
@@ -56,7 +76,7 @@ New     call BegText
         inc hl
 New1    ld (SPACE),hl
         ld (hl),0
-        call SetUnmodified
+        call SetUnmodifiedFile
         jp EDIT
 
  ;H -Y-KOOPДИHATA OKHA,
@@ -141,7 +161,7 @@ SvText1 ex de,hl
         rst #10
         call CloseFile
         ex af,af'
-        call SetUnmodified
+        call SetUnmodifiedFile
         ex af,af'
         jp nc,EDIT
 .error
@@ -173,7 +193,7 @@ Merge   ld h,8
         xor a
         call LoadTextFile
         ex af,af'
-        call SetModified
+        call SetModifiedFile
         ex af,af'
         jp nc,EDIT
 Cat1    call Waitkey
@@ -184,6 +204,29 @@ FileName   ds 128
 FlNameBuff ds 128
 
 LoadText
+        ld a,(IsModified)
+        and a
+        jr z,SureLoad
+        call StoreScrn
+        ld a,15
+        ld hl,#0D19
+        ld de,#061E:call OpenWindow
+        call OutFS
+        DB 22,14,31,"File is not saved!"
+        DB 22,15,28,"Do you want to proceed?"
+        DB 22,17,35,"Yes      No",0        
+        ld hl,LoadSureMenu
+        call Menu
+        jp MAIN2
+
+LoadSureMenu
+        DB 0,2
+        DB 17,33,7,"y":DW SureLoadRestore
+        DB 17,42,6,"n":DW MAIN2
+
+SureLoadRestore
+        call RestoreScrn
+SureLoad
         ld h,4
         ld de,FlNameBuff
         call InpFlName
@@ -195,7 +238,7 @@ LoadText
         jp c,Cat1
         ld hl,FlNameBuff
         call CopyFileName
-        call SetUnmodified
+        call SetUnmodifiedFile
         jp EDIT
 
 LoadTextFile
