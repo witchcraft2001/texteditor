@@ -45,12 +45,19 @@ Quit    call WinBack
         ld bc,Dss.Exit
         rst #10
 
-New     call BegText:call RemoveBlock
-        ld (hl),13:inc hl
-        ld a,(EOLN_Fl):or a:jr z,New1
-         ld (hl),10:inc hl
+New     call BegText
+        call RemoveBlock
+        ld (hl),13
+        inc hl
+        ld a,(EOLN_Fl)
+        or a
+        jr z,New1
+        ld (hl),10
+        inc hl
 New1    ld (SPACE),hl
-        ld (hl),0:jp EDIT
+        ld (hl),0
+        call SetUnmodified
+        jp EDIT
 
  ;H -Y-KOOPДИHATA OKHA,
  ;DE-AДPEC БУФEPA ИMEHИ.
@@ -133,6 +140,9 @@ SvText1 ex de,hl
         ld c,Dss.Write
         rst #10
         call CloseFile
+        ex af,af'
+        call SetUnmodified
+        ex af,af'
         jp nc,EDIT
 .error
         ld a,%00110000
@@ -162,6 +172,9 @@ Merge   ld h,8
         ld hl,(SPACE)
         xor a
         call LoadTextFile
+        ex af,af'
+        call SetModified
+        ex af,af'
         jp nc,EDIT
 Cat1    call Waitkey
         jr z,Cat1
@@ -182,6 +195,7 @@ LoadText
         jp c,Cat1
         ld hl,FlNameBuff
         call CopyFileName
+        call SetUnmodified
         jp EDIT
 
 LoadTextFile

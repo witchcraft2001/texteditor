@@ -321,6 +321,7 @@ InsTxt3 ex de,hl
         call MoveMem
         ld hl,(SPACE)
         ld (hl),0
+        call SetModified
         ret
 
 Pack    push hl
@@ -443,15 +444,30 @@ PrintChrCode
          call CurChrAddr:ld l,(hl)
          ld h,0:ld c,49:jr PrintLN1
 
+PrintModified
+        ld a,(IsModified)
+        and a
+        ld a,32
+        jr z,.next
+        ld a,"*"
+.next   ld (.flag),a
+        call OutFS
+        DB 22,31,80-21,16,%00111000
+.flag   DB "  ", 0
+        ret
+
 PrintEdInfo
-       call PrintMenu
-       call PrintKeyModes
-       call PrintLineNum
-       call PrintCurCol
-       ld c,80-19
-       call PrintLN2
-       call PrintFilename
-       ret
+        call PrintMenu
+        call PrintKeyModes
+        call PrintLineNum
+        call PrintCurCol
+        ld c,80-21
+        call PrintLN2
+        call PrintModified
+        call PrintFilename
+        ld a,#c0
+        out (#89),a
+        ret
 
 ;____________________
 
@@ -472,9 +488,7 @@ MainMenu DB 1,5
          DB 0,24,7,"s":DW SETUP
          DB 0,32,6,"i":DW INFO
 
-EDIT    ld a,#c0
-        out (#89),a
-        call PrintEdInfo
+EDIT    call PrintEdInfo
         scf
 EDIT1   jr nc,EDIT3
         call LIST
@@ -489,6 +503,7 @@ EDIT3   call SetCurXY
         call PrintKeyModes
         call PrintCurCol
         call PrintChrCode
+        call PrintModified
 EDIT4   call ReadKey
         call Beep
         ld hl,EDIT1
@@ -560,44 +575,29 @@ EDIT5   push af
         call MoveMem
 EDIT6   pop af
         ld (hl),a
+        call SetModified
         call RIGHT
         jp EDIT1
 
-; EDIT7   sub 4
-;         ld de,EdKeysTable
-;         call XLAT_w
-;         ld de,EDIT1
-;         push de
-;         jp (hl)
-
-; EdKeysTable
-;  DW PGDN,PGUP,CAPSLOCK,RUSLAT,LEFT,RIGHT
-;  DW DOWN,UP,BACKSP,ENTER,COMMAND,DELETE
-;  DW HOME,INSERT,ENDLN,TAB,MAINMENU
-
 Graph_Fl DB 0
 
+IsModified
+        db 0
+
 Graph_Table
- DB #C7, #D4, #BD, #B6, #B7, #BA, #C6, #D8, #CD, #B5, #B3, #DB, #BE, #CF, #DD, #DE, #D6, #C4, #D7, #D5, #B8, #F0, #D2, #D0, #D1, #D3 
- DB 0,0,0,0,0,0
- DB #C3, #C8, #D9, #B4, #BF, #B3, #CC, #CE, #CD, #B9, #BA, #B0, #BC, #CA, #B1, #B2, #DA, #C4, #C5, #C9, #BB, #FB, #C2, #C1, #CB, #C0 
+        DB #C7, #D4, #BD, #B6, #B7, #BA, #C6, #D8, #CD, #B5, #B3, #DB, #BE, #CF, #DD, #DE, #D6, #C4, #D7, #D5, #B8, #F0, #D2, #D0, #D1, #D3 
+        DB 0,0,0,0,0,0
+        DB #C3, #C8, #D9, #B4, #BF, #B3, #CC, #CE, #CD, #B9, #BA, #B0, #BC, #CA, #B1, #B2, #DA, #C4, #C5, #C9, #BB, #FB, #C2, #C1, #CB, #C0 
 
 MAINMENU pop de:call Pack:jp MAIN3
 
-CAPSLOCK
-        ; call CapsLock ;todo: разобраться с капсом в DSS
-        jr RUSLAT1
-
-RUSLAT  
-        ; call RusLat ; todo: разобраться с rus/lat в dss
-RUSLAT1 call PrintKeyModes
-        or a
+SetUnmodified
+        xor a
+        jr SetModified.set
+SetModified
+        ld a,1
+.set    ld (IsModified),a
         ret
-
-INSERT  ld a,(KeyModes)
-        xor %100
-        ld (KeyModes),a
-        jr RUSLAT1
 
 SetBegCol
         sub 80
@@ -711,64 +711,152 @@ UP      call Pack
         call Scroll_Down
         jr DOWN1
 
-LeadSpaces ld hl,(LineAddr):ld b,0
-LeadSpc1   ld a,(hl):cp 32:jr nz,LeadSpc2
-           inc hl:inc b:jr LeadSpc1
-LeadSpc2   ld a,(Comprs_Fl):or a
-           ld a,b:ret z:ld a,(hl)
-           cp SPC:ld a,b:ret nz
-           inc hl:ld b,(hl):res 7,b
-           ld a,b:ret
+LeadSpaces
+        ld hl,(LineAddr)
+        ld b,0
+LeadSpc1
+        ld a,(hl)
+        cp 32
+        jr nz,LeadSpc2
+        inc hl
+        inc b
+        jr LeadSpc1
+LeadSpc2
+        ld a,(Comprs_Fl)
+        or a
+        ld a,b
+        ret z
+        ld a,(hl)
+        cp SPC
+        ld a,b
+        ret nz
+        inc hl
+        ld b,(hl)
+        res 7,b
+        ld a,b
+        ret
 
-ENTER   ld a,(KeyModes)
-        bit 2,a:jr z,ENTER1
-         call CurChrAddr:inc de
-         ld a,(EOLN_Fl):or a
-         jr z,$+3:inc de
-         ld bc,LineBuff+127:call MoveMem
-         ld (hl),13:ld a,(EOLN_Fl):or a
-         jr z,ENTER1:inc hl:ld (hl),10
-ENTER1  call Pack:call LeadSpaces:push af
-ENTER2  call _NextLine:jr c,ENTER4
-          call Unpack:call PackBuff
-          inc de:ld a,13:ld (de),a
-          ld a,(EOLN_Fl):or a:jr z,ENTER3
-          inc de:ld a,10:ld (de),a
-ENTER3  call InsLine:jr ENTER2
+ENTER   call SetModified
+        ld a,(KeyModes)
+        bit 2,a
+        jr z,ENTER1
+        call CurChrAddr
+        inc de
+        ld a,(EOLN_Fl)
+        or a
+        jr z,$+3
+        inc de
+        ld bc,LineBuff+127
+        call MoveMem
+        ld (hl),13
+        ld a,(EOLN_Fl)
+        or a
+        jr z,ENTER1
+        inc hl
+        ld (hl),10
+ENTER1  call Pack
+        call LeadSpaces
+        push af
+ENTER2  call _NextLine
+        jr c,ENTER4
+        call Unpack
+        call PackBuff
+        inc de
+        ld a,13
+        ld (de),a
+        ld a,(EOLN_Fl)
+        or a
+        jr z,ENTER3
+        inc de
+        ld a,10
+        ld (de),a
+ENTER3  call InsLine
+        jr ENTER2
 ENTER4  call LeadSpaces
-        ld hl,(LineAddr):ld a,(hl)
-        cp 13:jr nz,ENTER5:ld b,255
-ENTER5  pop af:cp b:jr c,ENTER6:ld a,b
-ENTER6  ld (CurCol),a:call SetBegCol
-        ld a,(CurY):cp 23:ret c
-        ld hl,(BegLine):call Forward
-        ld (BegLine),hl:scf:ret
+        ld hl,(LineAddr)
+        ld a,(hl)
+        cp 13
+        jr nz,ENTER5
+        ld b,255
+ENTER5  pop af
+        cp b
+        jr c,ENTER6
+        ld a,b
+ENTER6  ld (CurCol),a
+        call SetBegCol
+        ld a,(CurY)
+        cp 30
+        ret c
+        ld hl,(BegLine)
+        call Forward
+        ld (BegLine),hl
+        scf
+        ret
 
-DELETE  call CurChrAddr:ld bc,LineBuff+129
-        ld a,(KeyModes):bit 2,a:jr z,DEL2
-DEL1      ld a,(hl):inc hl
-          cp 32:jr z,DEL3
-            ld h,d:ld l,e
-DEL2        inc hl:call MoveMem
-            or a:ret
-DEL3      push hl:or a:sbc hl,bc:pop hl
-        jr c,DEL1:ld hl,(LineAddr)
-        call Forward:ret nc:call Pack
-        ld hl,(LineAddr):call Forward
-        ld de,(BlockBeg):call cp_hl_de
+DELETE  call SetModified
+        call CurChrAddr
+        ld bc,LineBuff+129
+        ld a,(KeyModes)
+        bit 2,a
+        jr z,DEL2
+DEL1    ld a,(hl)
+        inc hl
+        cp 32
+        jr z,DEL3
+        ld h,d
+        ld l,e
+DEL2    inc hl
+        call MoveMem
+        or a
+        ret
+DEL3    push hl
+        or a
+        sbc hl,bc
+        pop hl
+        jr c,DEL1
+        ld hl,(LineAddr)
+        call Forward
+        ret nc
+        call Pack
+        ld hl,(LineAddr)
+        call Forward
+        ld de,(BlockBeg)
+        call cp_hl_de
         jr nz,DEL5
-DEL4     ld a,(de):inc de:cp 13:jr nz,DEL4
-         ld a,(de):cp 10:jr nz,$+3:inc de
-         ld (BlockBeg),de
-DEL5    ld de,(BlockEnd):call cp_hl_de
+DEL4    ld a,(de)
+        inc de
+        cp 13
+        jr nz,DEL4
+        ld a,(de)
+        cp 10
+        jr nz,$+3
+        inc de
+        ld (BlockBeg),de
+DEL5    ld de,(BlockEnd)
+        call cp_hl_de
         jr nz,DEL7
-DEL6     ld a,(de):inc de:cp 13:jr nz,DEL6
-         ld a,(de):cp 10:jr nz,$+3:inc de
-         ld (BlockEnd),de
-DEL7    dec hl:ld a,(hl):cp 10:jr nz,DEL8
-        dec hl:ld (hl),32:inc hl
-DEL8    ld (hl),32:ld hl,(LineAddr)
-        call Unpack:call Pack:scf:ret
+DEL6    ld a,(de)
+        inc de
+        cp 13
+        jr nz,DEL6
+        ld a,(de)
+        cp 10
+        jr nz,$+3
+        inc de
+        ld (BlockEnd),de
+DEL7    dec hl
+        ld a,(hl)
+        cp 10
+        jr nz,DEL8
+        dec hl
+        ld (hl),32
+        inc hl
+DEL8    ld (hl),32
+        ld hl,(LineAddr)
+        call Unpack
+        call Pack
+        scf
+        ret
 
 BACKSP  ld a,(CurCol):or a:ret z ;CF=0
         call CurChrAddr:ld a,(KeyModes)
@@ -902,35 +990,68 @@ MarkBeg ld hl,(LineAddr)
         ret
 
 MarkEnd ld hl,(LineAddr)
-        ld a,13:ld bc,0:cpir
-        ld a,(hl):cp 10:jr nz,$+3:inc hl
-        ld (BlockEnd),hl:ret
+        ld a,13
+        ld bc,0
+        cpir
+        ld a,(hl)
+        cp 10
+        jr nz,$+3
+        inc hl
+        ld (BlockEnd),hl
+        ret
 
-CopyBlock ld hl,(LineAddr):call SetLnAttr
-          ret c:call BlockExist:ret nc
-          push de:push hl:push de
-          ld hl,(LineAddr):push hl:push hl
-          call InsText:pop de
-          ld hl,(LineAddr):call cp_hl_de
-          jr nz,CopyBl1:ld (BlockEnd),hl
-CopyBl1   or a:ret
+CopyBlock
+        ld hl,(LineAddr)
+        call SetLnAttr
+        ret c
+        call BlockExist
+        ret nc
+        push de
+        push hl
+        push de
+        ld hl,(LineAddr)
+        push hl
+        push hl
+        call InsText
+        pop de
+        ld hl,(LineAddr)
+        call cp_hl_de
+        jr nz,CopyBl1
+        ld (BlockEnd),hl
+CopyBl1 or a
+        ret
 
-MoveBlock call CopyBlock:ret c
+MoveBlock
+        call CopyBlock
+        ret c
 
-DelBlock   call BlockExist:ret nc
-           push hl:push hl:push hl
-           ld (LineAddr),hl
-           ld hl,(SPACE):call cp_de_hl
-           jr c,DelBl1
-            dec de:ld a,(de):cp 10
-            jr nz,$+3:dec de
-DelBl1     push de:call InsText
-           ld b,7:call SetBegLine
-           call SetLnNum
-ResetBlock ld hl,(BlockBeg)
-           ld (BlockEnd),hl:ret
+DelBlock
+        call BlockExist
+        ret nc
+        push hl
+        push hl
+        push hl
+        ld (LineAddr),hl
+        ld hl,(SPACE)
+        call cp_de_hl
+        jr c,DelBl1
+        dec de
+        ld a,(de)
+        cp 10
+        jr nz,$+3
+        dec de
+DelBl1  push de
+        call InsText
+        ld b,7
+        call SetBegLine
+        call SetLnNum
+ResetBlock
+        ld hl,(BlockBeg)
+        ld (BlockEnd),hl
+        ret
 
 DeleteLine
+        call SetModified
         ld hl,(LineAddr)
         push hl
         push hl
@@ -962,73 +1083,132 @@ JumpTxt1
         scf
         ret
 
-JumpBegTxt ld bc,0:jr JumpTxt1
+JumpBegTxt
+        ld bc,0
+        jr JumpTxt1
 
-JumpLine   call OutFS
-           DB 22,31,2,"Line Number:",0
-           ld de,JumpLnBuff:ld a,13
-           ld (de),a:ld c,5:call Input
-           ex de,hl:call MakeNumber
-           ld b,d:ld c,e:ld a,b:or c
-           jr z,JumpTxt1
-           dec bc:jr JumpTxt1
+JumpLine
+        call OutFS
+        DB 22,31,2,"Line Number:",0
+        ld de,JumpLnBuff
+        ld a,13
+        ld (de),a
+        ld c,5
+        call Input
+        ex de,hl
+        call MakeNumber
+        ld b,d
+        ld c,e
+        ld a,b
+        or c
+        jr z,JumpTxt1
+        dec bc
+        jr JumpTxt1
 
 JumpLnBuff DS 6
 SearchBuff DS 16
 RplcBuff   DS 16
 
-Pattern ld a,%00001111:ld hl,#0306
-        ld de,#0516:call OpenWindow
+Pattern ld a,%00001111
+        ld hl,#0306
+        ld de,#0516
+        call OpenWindow
         call OutFS
         DB 22,4,13,"Search:",22,5,9,0
-        ld de,SearchBuff:ld c,15
-        call Input:cp 13:jr nz,Pttrn1
-         ld a,(de):cp 32:ret nc
-Pttrn1  pop de:ret
+        ld de,SearchBuff
+        ld c,15
+        call Input
+        cp 13
+        jr nz,Pttrn1
+        ld a,(de)
+        cp 32
+        ret nc
+Pttrn1  pop de
+        ret
 
 ;ПOИCK B БУФEPE C ПOЗИЦИИ C.
 ;BЫXOД: CF=0 -HAЙДEHO,C -ПOЗИЦИЯ,
 ; B -ДЛИHA ПOДCTPOKИ.
 
-SubString ld hl,LineBuff:xor a:ld b,a
-          ld (LineBuff+128),a:add hl,bc
-          ld a,129:sub c:ld c,a:ld b,0
-SubStr1    ld de,SearchBuff:ld a,(de)
-           cpir:scf:ret po:push hl:ld b,1
-SubStr2     inc de:ld a,(de):cp 13
-            jr z,SubStr3
-            inc b:cp (hl):inc hl
-           jr z,SubStr2
-           pop hl:ld b,0
-          jr SubStr1
-SubStr3   pop hl:ld de,LineBuff+1
-          sbc hl,de:ld c,l:ret
+SubString
+        ld hl,LineBuff
+        xor a
+        ld b,a
+        ld (LineBuff+128),a
+        add hl,bc
+        ld a,129
+        sub c
+        ld c,a
+        ld b,0
+SubStr1 ld de,SearchBuff
+        ld a,(de)
+        cpir
+        scf
+        ret po
+        push hl
+        ld b,1
+SubStr2 inc de
+        ld a,(de)
+        cp 13
+        jr z,SubStr3
+        inc b
+        cp (hl)
+        inc hl
+        jr z,SubStr2
+        pop hl
+        ld b,0
+        jr SubStr1
+SubStr3 pop hl
+        ld de,LineBuff+1
+        sbc hl,de
+        ld c,l
+        ret
 
 ;BЫXOД: BC, CF=0 -HAИДEHO
 
-FindStr   ld hl,(LineAddr):ld de,(LineNum)
-Find1      push hl:push de:call Unpack
-           ld a,(CurCol):ld c,a
-           call SubString:pop de:pop hl
-           jr nc,FindOK
-           call Forward:ld a,0
-           ld (CurCol),a:ld (BegCol),a
-          jr c,Find1:scf:ret
-FindOK    ld (LineAddr),hl:ld (LineNum),de
-          ld a,c:add a,b:cp 128
-          jr c,$+4:ld a,127
-          ld (CurCol),a:call SetBegCol
-          push bc:ld b,7:call SetBegLine
-          pop bc:or a:ret
+FindStr ld hl,(LineAddr)
+        ld de,(LineNum)
+Find1   push hl
+        push de
+        call Unpack
+        ld a,(CurCol)
+        ld c,a
+        call SubString
+        pop de
+        pop hl
+        jr nc,FindOK
+        call Forward
+        ld a,0
+        ld (CurCol),a
+        ld (BegCol),a
+        jr c,Find1
+        scf
+        ret
+FindOK  ld (LineAddr),hl
+        ld (LineNum),de
+        ld a,c
+        add a,b
+        cp 128
+        jr c,$+4
+        ld a,127
+        ld (CurCol),a
+        call SetBegCol
+        push bc
+        ld b,7
+        call SetBegLine
+        pop bc
+        or a
+        ret
 
 Search  call OutFS
         DB "Search",0
         call Pattern
         call FindStr
         ret nc
-SrchNFnd call OutFS
-         DB 22,6,12,"Not Found",0
-         jp C_Help1
+SrchNFnd
+        call OutFS
+        DB 22,6,12,"Not Found",0
+        jp C_Help1
 
 Replace call OutFS
         DB "Replace",0
@@ -1047,6 +1227,7 @@ Replace call OutFS
 Rplc1   push bc
         call PrintLineNum
         call PrintCurCol
+        call PrintModified
         pop bc
         bit 0,(iy+2)
         jr nz,Rplc5
@@ -1082,7 +1263,8 @@ Rplc4   set 0,(iy+2)
         ld hl,(LineAddr)
         call Unpack
         pop bc
-Rplc5   ld hl,LineBuff
+Rplc5   call SetModified
+        ld hl,LineBuff
         ld e,c
         ld d,0
         add hl,de
