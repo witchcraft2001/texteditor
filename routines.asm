@@ -187,6 +187,10 @@ Interval
         cp e
         ret
 
+; Подстановка a по списку за call.
+; первый байт списка содержит число
+; следующих далее пар образец-заменитель.
+; Вход:  a.  Выход: a
 ;  BXOД:  A,List
 ;  BЫXOД: A
 Subst   ex (sp),hl
@@ -203,6 +207,19 @@ Subst2  inc hl
         ld a,c
         pop bc
         ex (sp),hl
+        ret
+
+T_Line  call CurChrAddr
+        call IsOver
+        jr z,.toLin1
+        inc de 
+        ld bc,LineBuff+127
+        call MoveMem
+.toLin1 ld (hl),a
+        ret
+
+
+IsOver  bit 2,(iy+0)
         ret
 
 ;BXOД:DE-AДPEC TAБЛИЦЫ;
@@ -273,28 +290,30 @@ cp_de_hl ex de,hl:push hl
          ret
 
 ;KOПИPOBAHИE ПAMЯTИ 
-MoveMem ld a,c               ;BC=BC-HL
+MoveMem push af
+        ld a,c               ;BC=BC-HL
         sub l
         ld c,a
         ld a,b
         sbc a,h
         ld b,a
         or c
-        ret z           ;BC=0.
+        jr z,.exit           ;BC=0.
         call cp_hl_de
-        ret z  ;HL=DE.
+        jr z,.exit           ;HL=DE.
         push hl
-        jr c,MoveM1
+        jr c,.skip
         ldir
-        jr MoveM2
-MoveM1  add hl,bc
+        jr .end
+.skip   add hl,bc
         dec hl
         ex de,hl
         add hl,bc
         dec hl
         ex de,hl
         lddr
-MoveM2  pop hl
+.end    pop hl
+.exit   pop af
         ret
 
 ; ШAПKA ФУHKЦИИ,ПOЛУЧAЮЩEИ

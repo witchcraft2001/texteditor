@@ -420,41 +420,63 @@ PgSizeBuff DS 6
 
 ;█ █ █ Пункт меню ~SetUp~ █ █ █ 
 
-SETUP   ld a,15:ld hl,#0115
-        ld de,#040D:call OpenWindow
+SETUP   ld a,(AutoBrackets)
+        and a
+        ld a,#20
+        jr z,.noBrackets
+        ld a,#fb
+.noBrackets
+        ld (.brackets),a
+        ld a,(Comprs_Fl)
+        and a
+        ld a,#20
+        jr z,.noCompress
+        ld a,#fb
+.noCompress
+        ld (.compress),a
+        ld a,15
+        ld hl,#0116
+        ld de,#0514:call OpenWindow
         call OutFS
-        DB 22,2,23,"EOLN code"
-        DB 22,3,23,"Compress",0
-        ld hl,SetUpMenu
+        DB 22,2,24,"EOLN code"
+        DB 22,3,24,"Compress       "
+.compress
+        db #f9
+        DB 22,4,24,"Auto brackets  "
+.brackets
+        db #f9,0
+        ld a,(EOLN_Fl)
+        and a
+        jr z,.cr
+        call OutFS
+        DB 22,2,35,"CR/LF",0
+        jr .next
+.cr     call OutFS
+        DB 22,2,38,"CR",0
+.next   ld hl,SetUpMenu
         call Menu:jp MAIN2
 
-SetUpMenu DB 0,2
-          DB 2,22,11,"e":DW EOLN_Code
-          DB 3,22,11,"c":DW Compress
+SetUpMenu DB 0,3
+          DB 2,23,18,"e":DW SwitchEOLN
+          DB 3,23,18,"c":DW SwitchCompress
+          DB 4,23,18,"b":DW SwitchBrackets
 
-EOLN_Code ld a,%00010111:ld hl,#0317
-          ld de,#0409:call OpenWindow
-          call OutFS
-          DB 22,4,25,"CR"
-          DB 22,5,25,"CR/LF",0
-          ld hl,EOLN_Fl:call Menu
-          jp MAIN2
-
-EOLN_Fl   DB 1,2
-          DB 4,24,7,0:DW MAIN2
-          DB 5,24,7,0:DW MAIN2
-
-Compress  ld a,%00010111:ld hl,#0418
-          ld de,#0407:call OpenWindow
-          call OutFS
-          DB 22,5,26,"OFF"
-          DB 22,6,26,"ON",0
-          ld hl,Comprs_Fl:call Menu
-          jp MAIN2
-
-Comprs_Fl DB 0,2
-          DB 5,25,5,0:DW MAIN2
-          DB 6,25,5,0:DW MAIN2
+SwitchBrackets
+        ld hl,AutoBrackets
+        jr SwitchSettings
+SwitchCompress
+        ld hl,Comprs_Fl
+        jr SwitchSettings
+SwitchEOLN
+        ld hl,EOLN_Fl
+SwitchSettings
+        ld a,(hl)
+        and a
+        ld a,1
+        jr z,.next
+        xor a
+.next   ld (hl),a
+        jp SETUP
 
 ;█ █ █ Пункт меню ~Info~ █ █ █
 
@@ -474,6 +496,6 @@ INFO    ld a,15:ld hl,#0b14
         or a:sbc hl,de:call DecHL
         jp Cat1
 
+Comprs_Fl DB 0
+EOLN_Fl   DB 1
 ;█ █ *** The END! *** (October 1993) █ █ 
-
-

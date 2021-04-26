@@ -104,10 +104,17 @@ SetCur2 ld a,(BegCol)
         pop hl
         ret
 
-CurChrAddr push af:ld hl,LineBuff
-           ld a,(CurCol):ld e,a:ld d,0
-           add hl,de:ld e,l:ld d,h
-           pop af:ret
+CurChrAddr
+        push af
+        ld hl,LineBuff
+        ld a,(CurCol)
+        ld e,a
+        ld d,0
+        add hl,de
+        ld e,l
+        ld d,h
+        pop af
+        ret
 
 SetLnNum push hl:push bc:ld hl,(TEXT)
          ld de,0:ld bc,(LineAddr)
@@ -574,7 +581,8 @@ MainMenu DB 1,5
          DB 0,24,7,"s":DW SETUP
          DB 0,32,6,"i":DW INFO
 
-EDIT    call PrintEdInfo
+EDIT    ld iy,KeyModes
+        call PrintEdInfo
         scf
 EDIT1   jr nc,EDIT3
         call LIST
@@ -652,17 +660,10 @@ EDIT4   call ReadKey
         ld de,Graph_Table
         call XLAT_b
 EDIT5   push af
-        call CurChrAddr
-        ld a,(KeyModes)
-        bit 2,a
-        jr z,EDIT6
-        inc de
-        ld bc,LineBuff+127
-        call MoveMem
-EDIT6   pop af
-        ld (hl),a
+        call To_Line
+        pop bc
+        call AutoBracket
         call SetModifiedLine
-        call RIGHT
         jp EDIT1
 
 Graph_Fl DB 0
@@ -676,6 +677,21 @@ Graph_Table
         DB #C7, #D4, #BD, #B6, #B7, #BA, #C6, #D8, #CD, #B5, #B3, #DB, #BE, #CF, #DD, #DE, #D6, #C4, #D7, #D5, #B8, #F0, #D2, #D0, #D1, #D3 
         DB 0,0,0,0,0,0
         DB #C3, #C8, #D9, #B4, #BF, #B3, #CC, #CE, #CD, #B9, #BA, #B0, #BC, #CA, #B1, #B2, #DA, #C4, #C5, #C9, #BB, #FB, #C2, #C1, #CB, #C0 
+
+AutoBracket
+        ld a,1
+AutoBrackets equ $-1
+        and a
+        ret z 
+        ld a,b
+        call Subst
+        db 4
+        db "(){}[]<>"
+        cp b
+        jr nz,$+5
+        cp '"'
+        ret nz 
+        jp T_Line
 
 MAINMENU
         pop de
@@ -698,6 +714,9 @@ SetModifiedLine
         ld a,1        
 .set    ld (IsModifiedLine),a
         ret
+SetModifiedAndPack
+        call SetModifiedLine
+        jp Pack
 
 SetBegCol
         sub 80
@@ -730,6 +749,7 @@ LEFT2   call Pack
         scf
         ret
 
+To_Line call T_Line
 RIGHT   ld a,(CurCol)
 RIGHT1  cp 127
         jr nc,RIGHT2
@@ -837,8 +857,7 @@ LeadSpc2
         ret
 
 ENTER   call SetModifiedFile
-        ld a,(KeyModes)
-        bit 2,a
+        call IsOver
         jr z,ENTER1
         call CurChrAddr
         inc de
@@ -854,7 +873,7 @@ ENTER   call SetModifiedFile
         jr z,ENTER1
         inc hl
         ld (hl),10
-ENTER1  call Pack
+ENTER1  call SetModifiedAndPack
         call LeadSpaces
         push af
 ENTER2  call _NextLine
