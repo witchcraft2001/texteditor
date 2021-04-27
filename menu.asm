@@ -17,25 +17,30 @@ Prt_HL_e
 ;█ █ █ Пункт меню ~File~ █ █ █ 
 
 FILES   ld a,15:ld hl,#0101
-        ld de,#080E:call OpenWindow
+        ld de,#0C0E:call OpenWindow
         call OutFS
-        DB 22,2,3,"Save"
-        DB 22,3,3,"Load"
-        DB 22,4,3,"New"
-        DB 22,5,3,"save Block"
-        DB 22,6,3,"Merge"
-        DB 22,7,3,"Quit",0
+        DB 22,2,3,"New"
+        DB 22,3,1,RULER,14
+        DB 22,4,3,"Save"
+        DB 22,5,3,"save As"
+        DB 22,6,3,"save Block"
+        DB 22,7,1,RULER,14
+        DB 22,8,3,"Load"
+        DB 22,9,3,"Merge"
+        DB 22,10,1,RULER,14
+        DB 22,11,3,"Quit",0
         ld hl,FileMenu
         call Menu
         jp MAIN2
 
-FileMenu DB 0,6
-         DB 2,2,12,"s":DW SaveText
-         DB 3,2,12,"l":DW LoadText
-         DB 4,2,12,"n":DW New
-         DB 5,2,12,"b":DW SaveBlock
-         DB 6,2,12,"m":DW Merge
-         DB 7,2,12,"q":DW Quit
+FileMenu DB 0,7
+         DB 2,2,12,"n":DW New
+         DB 4,2,12,"s":DW SaveText
+         DB 5,2,12,"a":DW SaveTextAs
+         DB 6,2,12,"b":DW SaveBlock
+         DB 8,2,12,"l":DW LoadText
+         DB 9,2,12,"m":DW Merge
+         DB 11,2,12,"q":DW Quit
 
 Quit    ld a,(IsModified)
         and a
@@ -129,6 +134,12 @@ CleanFileName
 hFile   db 0
 
 SaveText
+        ld a,(FileName)
+        and a
+        jp z,MAIN2
+        ld hl,FileName
+        jr SaveTextAs.save
+SaveTextAs
         ld hl,FileName
         ld de,FlNameBuff
         push de
@@ -140,7 +151,7 @@ SaveText
         call InpFlName
         jp c,MAIN2
         ld hl,FlNameBuff
-        call CopyFileName
+.save   call CopyFileName
         ld hl,(TEXT)
         ld de,(SPACE)
 SvText1 ex de,hl
@@ -149,7 +160,7 @@ SvText1 ex de,hl
         ex de,hl
         push hl
         push de
-        ld c,Dss.Creat_N
+        ld c,Dss.Create
         ld hl,FlNameBuff
         ld a,FileAttrib.Arch
         rst #10
@@ -436,30 +447,32 @@ SETUP   ld a,(AutoBrackets)
         ld (.compress),a
         ld a,15
         ld hl,#0116
-        ld de,#0514:call OpenWindow
+        ld de,#0716:call OpenWindow
         call OutFS
         DB 22,2,24,"EOLN code"
-        DB 22,3,24,"Compress       "
+        DB 22,3,24,"Compress",SPC,9
 .compress
         db #f9
-        DB 22,4,24,"Auto brackets  "
+        DB 22,4,24,"Auto brackets",SPC,4
 .brackets
-        db #f9,0
+        db #f9
+        db 22,5,22,RULER,22
+        DB 22,6,24,"Save settings",0
         ld a,(EOLN_Fl)
         and a
         jr z,.cr
         call OutFS
-        DB 22,2,35,"CR/LF",0
+        DB 22,2,37,"CR/LF",0
         jr .next
 .cr     call OutFS
-        DB 22,2,38,"CR",0
+        DB 22,2,40,"CR",0
 .next   ld hl,SetUpMenu
         call Menu:jp MAIN2
 
 SetUpMenu DB 0,3
-          DB 2,23,18,"e":DW SwitchEOLN
-          DB 3,23,18,"c":DW SwitchCompress
-          DB 4,23,18,"b":DW SwitchBrackets
+          DB 2,23,20,"e":DW SwitchEOLN
+          DB 3,23,20,"c":DW SwitchCompress
+          DB 4,23,20,"b":DW SwitchBrackets
 
 SwitchBrackets
         ld hl,AutoBrackets

@@ -95,6 +95,7 @@ BlockEnd  DW END+1
 ScrnAttr   EQU %00000111
 BlockAttr  EQU %01010111
 SPC        EQU 6
+RULER      EQU 1
 
 KeyModes  DB %00000100
 CurX      DB 0
@@ -542,6 +543,8 @@ OutHL0  ld a,(hl)
         inc hl
         or a
         jr z,OutHL1
+        cp RULER
+        jr z,HorizontalRuler
         cp 16
         jr z,OutHL2
         cp 22
@@ -567,6 +570,20 @@ OutHL4  push bc
 OutHL6  ld a,32
         call Print
         djnz OutHL6
+        pop bc
+        jr OutHL5
+HorizontalRuler
+        push bc
+        ld a,195
+        call Print
+        ld b,(hl)
+        dec b
+        dec b
+        ld a,196
+.loop   call Print
+        djnz .loop
+        ld a,180
+        call Print
         pop bc
         jr OutHL5
 
