@@ -664,6 +664,7 @@ EDIT5   push af
         pop bc
         call AutoBracket
         call SetModifiedLine
+        and a
         jp EDIT1
 
 Graph_Fl DB 0

@@ -453,7 +453,7 @@ SETUP   ld a,(AutoBrackets)
         DB 22,3,24,"Compress",SPC,9
 .compress
         db #f9
-        DB 22,4,24,"Auto brackets",SPC,4
+        DB 22,4,24,"auto Brackets",SPC,4
 .brackets
         db #f9
         db 22,5,22,RULER,22
