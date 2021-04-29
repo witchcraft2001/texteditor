@@ -20,14 +20,14 @@ FILES   ld a,15:ld hl,#0101
         ld de,#0C0E:call OpenWindow
         call OutFS
         DB 22,2,3,"New"
-        DB 22,3,1,RULER,14
-        DB 22,4,3,"Save"
-        DB 22,5,3,"save As"
-        DB 22,6,3,"save Block"
-        DB 22,7,1,RULER,14
-        DB 22,8,3,"Load"
-        DB 22,9,3,"Merge"
-        DB 22,10,1,RULER,14
+        DB 22,3,1,DIVIDER,14
+        DB 22,4,3,"Load"
+        DB 22,5,3,"Merge"
+        DB 22,6,1,DIVIDER,14
+        DB 22,7,3,"Save"
+        DB 22,8,3,"save As"
+        DB 22,9,3,"save Block"
+        DB 22,10,1,DIVIDER,14
         DB 22,11,3,"Quit",0
         ld hl,FileMenu
         call Menu
@@ -35,22 +35,23 @@ FILES   ld a,15:ld hl,#0101
 
 FileMenu DB 0,7
          DB 2,2,12,"n":DW New
-         DB 4,2,12,"s":DW SaveText
-         DB 5,2,12,"a":DW SaveTextAs
-         DB 6,2,12,"b":DW SaveBlock
-         DB 8,2,12,"l":DW LoadText
-         DB 9,2,12,"m":DW Merge
+         DB 4,2,12,"l":DW LoadText
+         DB 5,2,12,"m":DW Merge
+         DB 7,2,12,"s":DW SaveText
+         DB 8,2,12,"a":DW SaveTextAs
+         DB 9,2,12,"b":DW SaveBlock
          DB 11,2,12,"q":DW Quit
 
 Quit    ld a,(IsModified)
         and a
         jr z,SureQuit
-        ld a,15
-        ld hl,#0D1B
-        ld de,#061A:call OpenWindow
+        ld a,Colors.Yellow*16
+        ld hl,#0B1B
+        ld de,#081A:call OpenWindow
         call OutFS
-        DB 22,14,31,"File is not saved!"
-        DB 22,15,30,"Do you want to quit?"
+        DB 22,13,31,"File is not saved!"
+        DB 22,14,30,"Do you want to quit?"
+        db 22,16,#1b,DIVIDER,#1a
         DB 22,17,35,"Yes      No",0        
         ld hl,NotSavedMenu
         call Menu
@@ -133,13 +134,24 @@ CleanFileName
         ret
 hFile   db 0
 
+SaveOverwriteMenu
+        DB 0,2
+        DB 17,33,7,"y":DW SaveTextAs.continue
+        DB 17,42,6,"n":DW MAIN2
+
 SaveText
+        ld a,(IsModified)
+        and a
+        jp z,MAIN2
         ld a,(FileName)
         and a
         jp z,MAIN2
         ld hl,FileName
-        jr SaveTextAs.save
+        jp SaveTextAs.save
 SaveTextAs
+        ld a,(IsModified)
+        and a
+        jp z,MAIN2
         ld hl,FileName
         ld de,FlNameBuff
         push de
@@ -150,6 +162,33 @@ SaveTextAs
         ld de,FlNameBuff
         call InpFlName
         jp c,MAIN2
+        ld hl,LineBuff
+        ld e,l
+        ld d,h
+        inc de
+        ld (hl),0
+        ld bc,44
+        ldir
+        ld hl,FlNameBuff
+        ld bc,Dss.F_First
+        ld de,LineBuff
+        ld a,FileAttrib.Arch
+        rst #10
+        jr c,.continue
+        ld a,(hl)
+        and a
+        jr z,.continue
+        ld a,Colors.Yellow*16
+        ld hl,#0C19
+        ld de,#071E:call OpenWindow
+        call OutFS
+        DB 22,14,29,"File exists, overwrite?"
+        db 22,16,25,DIVIDER,30
+        DB 22,17,35,"Yes      No",0        
+        ld hl,SaveOverwriteMenu
+        call Menu
+        jp MAIN2
+.continue
         ld hl,FlNameBuff
 .save   call CopyFileName
         ld hl,(TEXT)
@@ -219,12 +258,13 @@ LoadText
         and a
         jr z,SureLoad
         call StoreScrn
-        ld a,15
-        ld hl,#0D19
-        ld de,#061E:call OpenWindow
+        ld a,Colors.Yellow*16
+        ld hl,#0B19
+        ld de,#081E:call OpenWindow
         call OutFS
-        DB 22,14,31,"File is not saved!"
-        DB 22,15,28,"Do you want to proceed?"
+        DB 22,13,31,"File is not saved!"
+        DB 22,14,28,"Do you want to proceed?"
+        db 22,16,25,DIVIDER,30
         DB 22,17,35,"Yes      No",0        
         ld hl,LoadSureMenu
         call Menu
@@ -456,7 +496,7 @@ SETUP   ld a,(AutoBrackets)
         DB 22,4,24,"auto Brackets",SPC,4
 .brackets
         db #f9
-        db 22,5,22,RULER,22
+        db 22,5,22,DIVIDER,22
         DB 22,6,24,"Save settings",0
         ld a,(EOLN_Fl)
         and a
@@ -500,6 +540,7 @@ INFO    ld a,15:ld hl,#0b14
         DB 22,14,22,"based on ZX/IBM Text Editor sources"
         DB 22,15,23,"ver.1.0 (Oct.1993) by Hohlov Oleg"
         DB 22,16,24,"ported by Mikhaltchenkov Dmitry"
+        db 22,17,20,DIVIDER,39
         DB 22,18,22,"Text Length: ",0
         ld hl,(SPACE):ld de,(TEXT)
         or a:sbc hl,de:ld a,3:call DecHL

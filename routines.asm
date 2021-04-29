@@ -95,7 +95,7 @@ BlockEnd  DW END+1
 ScrnAttr   EQU %00000111
 BlockAttr  EQU %01010111
 SPC        EQU 6
-RULER      EQU 1
+DIVIDER      EQU 1
 
 KeyModes  DB %00000100
 CurX      DB 0
@@ -543,7 +543,7 @@ OutHL0  ld a,(hl)
         inc hl
         or a
         jr z,OutHL1
-        cp RULER
+        cp DIVIDER
         jr z,HorizontalRuler
         cp 16
         jr z,OutHL2

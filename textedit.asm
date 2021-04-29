@@ -38,5 +38,17 @@ SCR_BUF1 equ #C000 + 80*32*2
 LineBuff equ #4100
 SafeStack equ #8040
 
+Colors.Black    equ 0
+Colors.Blue     equ 1
+Colors.Green    equ 2
+Colors.Cyan     equ 3
+Colors.Red      equ 4
+Colors.Magenta  equ 5
+Colors.Yellow   equ 6
+Colors.White    equ 7
+Colors.Bright   equ 8
+Colors.Flash    equ #80
+
+
 ExeEnd
         savebin	"ted.exe",EXEhead,ExeEnd-EXEhead
