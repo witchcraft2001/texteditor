@@ -44,23 +44,10 @@ FileMenu DB 0,7
 
 Quit    ld a,(IsModified)
         and a
-        jr z,SureQuit
-        ld a,Colors.Yellow*16
-        ld hl,#0B1B
-        ld de,#081A:call OpenWindow
-        call OutFS
-        DB 22,13,31,"File is not saved!"
-        DB 22,14,30,"Do you want to quit?"
-        db 22,16,#1b,DIVIDER,#1a
-        DB 22,17,35,"Yes      No",0        
-        ld hl,NotSavedMenu
-        call Menu
+        jr z,SureQuit        
+        call NotSavedDialog
+        jr nc,SureQuit
         jp MAIN2
-
-NotSavedMenu
-        DB 0,2
-        DB 17,33,7,"y":DW SureQuit
-        DB 17,42,6,"n":DW MAIN2
 
 SureQuit
         call WinBack
@@ -71,7 +58,12 @@ SureQuit
         ld bc,Dss.Exit
         rst #10
 
-New     call BegText
+New     ld a,(IsModified)
+        and a
+        jr z,.saved
+        call NotSavedDialog
+        jp c,MAIN2
+.saved  call BegText
         call RemoveBlock
         ld (hl),13
         inc hl
@@ -83,6 +75,16 @@ New     call BegText
 New1    ld (SPACE),hl
         ld (hl),0
         call SetUnmodifiedFile
+        ld hl,.nameless
+        ld de,PrintFilename.dosname
+        ld bc,13
+        ldir
+        ld hl,FileName
+        ld d,h
+        ld e,l
+        ld (hl),0
+        ld bc,127
+        ldir
         jp EDIT
 
  ;H -Y-KOOPДИHATA OKHA,
@@ -145,7 +147,7 @@ SaveText
         jp z,MAIN2
         ld a,(FileName)
         and a
-        jp z,MAIN2
+        jr z,SaveTextAs
         ld hl,FileName
         jp SaveTextAs.save
 SaveTextAs
@@ -253,10 +255,7 @@ Cat1    call Waitkey
 FileName   ds 128
 FlNameBuff ds 128
 
-LoadText
-        ld a,(IsModified)
-        and a
-        jr z,SureLoad
+NotSavedDialog
         call StoreScrn
         ld a,Colors.Yellow*16
         ld hl,#0B19
@@ -266,17 +265,26 @@ LoadText
         DB 22,14,28,"Do you want to proceed?"
         db 22,16,25,DIVIDER,30
         DB 22,17,35,"Yes      No",0        
-        ld hl,LoadSureMenu
+        ld hl,NotSavedDlgMenu
         call Menu
-        jp MAIN2
+.no     call RestoreScrn
+        scf
+        ret
+.yes    call RestoreScrn
+        and a
+        ret
 
-LoadSureMenu
+NotSavedDlgMenu
         DB 0,2
-        DB 17,33,7,"y":DW SureLoadRestore
-        DB 17,42,6,"n":DW MAIN2
+        DB 17,33,7,"y":DW NotSavedDialog.yes
+        DB 17,42,6,"n":DW NotSavedDialog.no
 
-SureLoadRestore
-        call RestoreScrn
+LoadText
+        ld a,(IsModified)
+        and a
+        jr z,SureLoad
+        call NotSavedDialog
+        jp c,MAIN2
 SureLoad
         ld h,4
         ld de,FlNameBuff
