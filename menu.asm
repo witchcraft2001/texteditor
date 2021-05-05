@@ -76,7 +76,7 @@ New1    ld (SPACE),hl
         ld (hl),0
         call SetUnmodifiedFile
         ld hl,.nameless
-        ld de,PrintFilename.dosname
+        ld de,PrintFilename.dosName
         ld bc,13
         ldir
         ld hl,FileName
@@ -86,7 +86,8 @@ New1    ld (SPACE),hl
         ld bc,127
         ldir
         jp EDIT
-
+.nameless
+        db "NAMELESS.TXT",0
  ;H -Y-KOOPДИHATA OKHA,
  ;DE-AДPEC БУФEPA ИMEHИ.
 
@@ -517,10 +518,11 @@ SETUP   ld a,(AutoBrackets)
 .next   ld hl,SetUpMenu
         call Menu:jp MAIN2
 
-SetUpMenu DB 0,3
+SetUpMenu DB 0,4
           DB 2,23,20,"e":DW SwitchEOLN
           DB 3,23,20,"c":DW SwitchCompress
           DB 4,23,20,"b":DW SwitchBrackets
+          DB 6,23,20,"s":DW SaveSettings
 
 SwitchBrackets
         ld hl,AutoBrackets
@@ -538,6 +540,108 @@ SwitchSettings
         xor a
 .next   ld (hl),a
         jp SETUP
+
+ReadSettings
+        ld hl,LineBuff
+        push hl
+        ld bc,256 + Dss.AppInfo
+        rst 10h
+        pop hl
+        ld a,(LineBuff)
+        and a
+        jr z,.skip
+        ld c,Dss.ChDir
+        rst 10h
+.skip   ld hl,SettingsFileName
+        ld c,Dss.Open
+        ld a,1
+        rst 10h
+        jr c,.restDir
+        ld (.file),a
+        ld hl,LineBuff
+        ld de,6
+        ld c,Dss.Read
+        rst 10h
+        jr c,.close
+        ld hl,(LineBuff)
+        ld de,#4554
+        and a
+        sbc hl,de
+        jr nz,.close
+        ld hl,LineBuff+2
+        ld a,(hl)
+        cp "C"
+        jr nz,.close
+        inc hl
+        ld a,(hl)               ;End Of Line param
+        ld (EOLN_Fl),a
+        inc hl
+        ld a,(hl)               ;Compress param
+        ld (Comprs_Fl),a
+        inc hl
+        ld a,(hl)               ;AutoBrackets param
+        ld (AutoBrackets),a
+.close  ld a,0
+.file   equ $-1
+        ld c,Dss.Close
+        rst 10h
+.restDir
+        ld hl,CurrentDir
+        ld c,Dss.ChDir
+        rst 10h
+        ret
+
+SaveSettings
+        ld hl,LineBuff
+        push hl
+        ld bc,256 + Dss.AppInfo
+        rst 10h
+        pop hl
+        ld a,(LineBuff)
+        and a
+        jr z,.skip
+        ld c,Dss.ChDir
+        rst 10h
+.skip   ld hl,SettingsFileName
+        ld c,Dss.Create
+        ld a,FileAttrib.Arch
+        rst 10h
+        jr c,.restDir
+        ld (.file),a
+        ex af,af'
+        ld hl,LineBuff
+        push hl
+        ld (hl),"T"
+        inc hl
+        ld (hl),"E"
+        inc hl
+        ld (hl),"C"
+        inc hl
+        ld a,(EOLN_Fl)
+        ld (hl),a               ;End Of Line param
+        inc hl
+        ld a,(Comprs_Fl)
+        ld (hl),a               ;Compress param
+        inc hl
+        ld a,(AutoBrackets)
+        ld (hl),a               ;AutoBrackets param
+        pop hl
+        ex af,af'
+        ld de,6
+        ld c,Dss.Write
+        rst 10h
+.close  ld a,0
+.file   equ $-1
+        ld c,Dss.Close
+        rst 10h
+.restDir
+        ld hl,CurrentDir
+        ld c,Dss.ChDir
+        rst 10h
+        jp MAIN2
+
+SettingsFileName
+        db "ted.cfg",0
 
 ;█ █ █ Пункт меню ~Info~ █ █ █
 
@@ -561,3 +665,4 @@ INFO    ld a,15:ld hl,#0b14
 Comprs_Fl DB 0
 EOLN_Fl   DB 1
 ;█ █ *** The END! *** (October 1993) █ █ 
+

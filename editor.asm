@@ -528,7 +528,7 @@ PrintCurCol
 PrintFilename
          call OutFS
          DB 22,31,80-19,16,%00111000,"Edit: "
-.dosName DB "nameless.txt",0
+.dosName DB "NAMELESS.TXT",0
          ret
 
 PrintChrCode
@@ -566,8 +566,11 @@ PrintEdInfo
 
 ;     PEДAKTOP
 ;____________________
-
-MAIN1   call ClrScr
+MAIN0   ld hl,CurrentDir
+        ld c,Dss.CurDir
+        rst 10h
+MAIN1   call ReadSettings
+        call ClrScr
 MAIN2   call PrintEdInfo
         call LIST
 MAIN3   ld hl,MainMenu

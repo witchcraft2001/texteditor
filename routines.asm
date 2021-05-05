@@ -61,14 +61,14 @@ START   ld (SaveSP),sp
         jr c,.exit
         ld hl,FlNameBuff
         call CopyFileName
-        jp MAIN1
+        jp MAIN0
 .nofile ld hl,MsgCantOpen
         jr .exit
 .empty  ld hl,(TEXT)
         ld (hl),13
         inc hl
         ld (hl),0
-        jp MAIN1
+        jp MAIN0
 MsgNoMemory
         db "Not enough memory to load program.", 0x00
 MsgCantOpen
