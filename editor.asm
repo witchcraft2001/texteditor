@@ -645,6 +645,11 @@ EDIT4   call ReadKey
         and #7f
         cp #15                  ;ctrl+y
         jp z,DeleteLine
+        cp #2c                  ;ctrl+c
+        jp z,EditCopyClipboard
+        ;cp #2d                 ;ctrl+v
+        cp #2b                 ;ctrl+x
+        jp z,EditCutClipboard
         CP #57                  ;Ctrl+PgUp
         jp z,JumpBegTxt
         CP #51		        ;Ctrl+PgDn
@@ -670,6 +675,19 @@ EDIT5   push af
         and a
         jp EDIT1
 
+EditCopyClipboard
+        call Pack
+        jp SaveClipboard
+
+EditCutClipboard
+        call Pack
+        call SaveClipboard
+        ret c
+        call DelBlock
+        ld a,1
+        ld (IsModified),a
+        scf
+        ret
 Graph_Fl DB 0
 
 IsModified

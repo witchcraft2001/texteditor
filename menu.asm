@@ -196,7 +196,21 @@ SaveTextAs
 .save   call CopyFileName
         ld hl,(TEXT)
         ld de,(SPACE)
-SvText1 ex de,hl
+SvText1 call SaveFile
+        jp nc,EDIT
+        ld a,%00110000
+        ld hl,#0709
+        ld de,#0319
+        call OpenWindow
+        call OutFS
+        DB 22,8,13,"Writing error ...",0
+        call Waitkey
+        jp EDIT
+
+;Сохраняет блок текста по адресу HL длиной DE в файл с названием в FlNameBuff
+;по выходу CF=1 - ошибка записи
+SaveFile
+        ex de,hl
         or a
         sbc hl,de
         ex de,hl
@@ -208,7 +222,7 @@ SvText1 ex de,hl
         rst #10
         pop de
         pop hl
-        jr c,.error
+        ret c
         ld (hFile),a
         ld c,Dss.Write
         rst #10
@@ -216,17 +230,9 @@ SvText1 ex de,hl
         ex af,af'
         call SetUnmodifiedFile
         ex af,af'
-        jp nc,EDIT
-.error
-        ld a,%00110000
-        ld hl,#0709
-        ld de,#0319
-        call OpenWindow
-        call OutFS
-        DB 22,8,13,"Writing error ...",0
-        call Waitkey
-        jp EDIT
+        ret
 
+;Запись блока текста в файл
 SaveBlock
         call BlockExist
         jp nc,FILES
@@ -237,6 +243,48 @@ SaveBlock
         ld hl,(BlockBeg)
         ld de,(BlockEnd)
         jr SvText1
+        
+SaveClipboard
+        call BlockExist
+        ret nc
+        ld hl,LineBuff
+        push hl
+        ld bc,256 + Dss.AppInfo
+        rst 10h
+        pop hl
+        ld a,(LineBuff)
+        and a
+        jr z,.skip
+        ld c,Dss.ChDir
+        rst 10h
+.skip   ld hl,ClipboardName
+        ld c,Dss.Create
+        ld a,FileAttrib.Arch
+        rst 10h
+        jr c,.restDir
+        ld (.file),a
+        ex af,af'
+        ld de,(BlockBeg)
+        ld hl,(BlockEnd)
+        push de
+        and a
+        sbc hl,de
+        ex hl,de
+        pop hl
+        ex af,af'
+        ld c,Dss.Write
+        rst 10h
+.close  ld a,0
+.file   equ $-1
+        ld c,Dss.Close
+        rst 10h
+.restDir
+        ld hl,CurrentDir
+        ld c,Dss.ChDir
+        rst 10h
+        ret
+ClipboardName
+        db "clipbrd.txt",0
 
 Merge   ld h,8
         ld de,FlNameBuff
