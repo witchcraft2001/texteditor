@@ -152,9 +152,6 @@ SaveText
         ld hl,FileName
         jp SaveTextAs.save
 SaveTextAs
-        ld a,(IsModified)
-        and a
-        jp z,MAIN2
         ld hl,FileName
         ld de,FlNameBuff
         push de
