@@ -566,8 +566,17 @@ PrintEdInfo
 
 ;     PEДAKTOP
 ;____________________
-MAIN0   ld hl,CurrentDir
+MAIN0   ld c,Dss.CurDisk
+        rst 10h
+        add a,"A"
+        ld (CurrentDir),a
+        ld a,":"
+        ld (CurrentDir+1),a
+        ld hl,CurrentDir+2
         ld c,Dss.CurDir
+        rst 10h
+        ld hl,AppDir
+        ld bc,256 + Dss.AppInfo
         rst 10h
 MAIN1   call ReadSettings
         call ClrScr
@@ -677,11 +686,11 @@ EDIT5   push af
 
 EditCopyClipboard
         call Pack
-        jp SaveClipboard
+        jp WriteClipboardFile
 
 EditCutClipboard
         call Pack
-        call SaveClipboard
+        call WriteClipboardFile
         ret c
         call DelBlock
         ld a,1

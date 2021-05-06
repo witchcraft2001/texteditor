@@ -33,11 +33,12 @@ StartText
         DB 13,0
 EndText
 
-SCR_BUF equ #C000
-SCR_BUF1 equ #C000 + 80*32*2
-LineBuff equ #4100
-CurrentDir equ #4200
-SafeStack equ #8040
+SCR_BUF		equ #C000
+SCR_BUF1	equ #C000 + 80*32*2
+LineBuff	equ #4100
+CurrentDir	equ #4200
+AppDir		equ #4280
+SafeStack	equ #8040
 
 Colors.Black    equ 0
 Colors.Blue     equ 1

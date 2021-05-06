@@ -216,6 +216,9 @@ SaveFile
         ex de,hl
         push hl
         push de
+        ld a,(FlNameBuff+1)
+        cp ":"
+        call nz,RestoreCurDir
         ld c,Dss.Create
         ld hl,FlNameBuff
         ld a,FileAttrib.Arch
@@ -244,24 +247,22 @@ SaveBlock
         ld de,(BlockEnd)
         jr SvText1
         
-SaveClipboard
+WriteClipboardFile
         call BlockExist
         ret nc
         ld hl,LineBuff
         push hl
         ld bc,256 + Dss.AppInfo
         rst 10h
+        pop de
+        ld hl,ClipboardFileName
+        push de
+        call ConcatString
         pop hl
-        ld a,(LineBuff)
-        and a
-        jr z,.skip
-        ld c,Dss.ChDir
-        rst 10h
-.skip   ld hl,ClipboardName
         ld c,Dss.Create
         ld a,FileAttrib.Arch
         rst 10h
-        jr c,.restDir
+        ret c
         ld (.file),a
         ex af,af'
         ld de,(BlockBeg)
@@ -278,13 +279,11 @@ SaveClipboard
 .file   equ $-1
         ld c,Dss.Close
         rst 10h
-.restDir
-        ld hl,CurrentDir
-        ld c,Dss.ChDir
-        rst 10h
         ret
-ClipboardName
-        db "clipbrd.txt",0
+
+
+ClipboardFileName
+        db "CLIPBRD.TXT",0
 
 Merge   ld h,8
         ld de,FlNameBuff
@@ -352,6 +351,12 @@ SureLoad
 LoadTextFile
         ld (.flag),a
         push hl
+        push hl
+        inc hl
+        ld a,(hl)
+        cp ":"
+        call nz,RestoreCurDir
+        pop hl
         push de
         ex hl,de
         ld c,Dss.Open
@@ -590,21 +595,19 @@ SwitchSettings
         jp SETUP
 
 ReadSettings
-        ld hl,LineBuff
-        push hl
-        ld bc,256 + Dss.AppInfo
-        rst 10h
+        ld de,LineBuff
+        ld hl,AppDir
+        push de
+        call CopyString
+        pop de
+        push de
+        ld hl,SettingsFileName
+        call ConcatString
         pop hl
-        ld a,(LineBuff)
-        and a
-        jr z,.skip
-        ld c,Dss.ChDir
-        rst 10h
-.skip   ld hl,SettingsFileName
         ld c,Dss.Open
         ld a,1
         rst 10h
-        jr c,.restDir
+        ret c
         ld (.file),a
         ld hl,LineBuff
         ld de,6
@@ -633,28 +636,22 @@ ReadSettings
 .file   equ $-1
         ld c,Dss.Close
         rst 10h
-.restDir
-        ld hl,CurrentDir
-        ld c,Dss.ChDir
-        rst 10h
         ret
 
 SaveSettings
-        ld hl,LineBuff
-        push hl
-        ld bc,256 + Dss.AppInfo
-        rst 10h
+        ld de,LineBuff
+        ld hl,AppDir
+        push de
+        call CopyString
+        pop de
+        push de
+        ld hl,SettingsFileName
+        call ConcatString
         pop hl
-        ld a,(LineBuff)
-        and a
-        jr z,.skip
-        ld c,Dss.ChDir
-        rst 10h
-.skip   ld hl,SettingsFileName
         ld c,Dss.Create
         ld a,FileAttrib.Arch
         rst 10h
-        jr c,.restDir
+        jp c,MAIN2
         ld (.file),a
         ex af,af'
         ld hl,LineBuff
@@ -682,14 +679,24 @@ SaveSettings
 .file   equ $-1
         ld c,Dss.Close
         rst 10h
-.restDir
+        jp MAIN2
+RestoreCurDir
+        push hl
+        push de
+        push bc
+        ld a,(CurrentDir)
+        sub "A"
+        ld c,Dss.ChDisk
+        rst 10h
         ld hl,CurrentDir
         ld c,Dss.ChDir
         rst 10h
-        jp MAIN2
-
+        pop bc
+        pop de
+        pop hl
+        ret
 SettingsFileName
-        db "ted.cfg",0
+        db "TED.CFG",0
 
 ;█ █ █ Пункт меню ~Info~ █ █ █
 
