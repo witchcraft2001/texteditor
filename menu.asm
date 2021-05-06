@@ -247,10 +247,10 @@ SaveBlock
 WriteClipboardFile
         call BlockExist
         ret nc
-        ld hl,LineBuff
-        push hl
-        ld bc,256 + Dss.AppInfo
-        rst 10h
+        ld de,LineBuff
+        ld hl,AppDir
+        push de
+        call CopyString
         pop de
         ld hl,ClipboardFileName
         push de
@@ -278,6 +278,74 @@ WriteClipboardFile
         rst 10h
         ret
 
+InsertClipboardFile
+        ld de,LineBuff
+        ld hl,AppDir
+        push de
+        call CopyString
+        pop de
+        ld hl,ClipboardFileName
+        push de
+        call ConcatString
+        pop hl
+        ld c,Dss.Open
+        ld a,FileAttrib.Arch
+        rst 10h
+        ret c
+        ld (.file),a
+        ld hl,0
+        push hl
+        pop ix
+        ld bc,2 * 256 + Dss.Move_FP
+        rst 10h
+        ld a,h
+        or l
+        jr nz,.close            ;file too big
+        push ix
+        pop hl
+        ld (.clipLen),hl
+        ld de,(SPACE)
+        add hl,de
+        ld de,(RAMTOP)
+        call cp_de_hl
+        jr c,.close             ;file too big
+        ld hl,(LineAddr)
+        push ix
+        push hl
+        push hl
+        push ix
+        pop de
+        add hl,de
+        ex hl,de
+        pop hl
+        ld bc,(SPACE)
+        call MoveMem
+        ld hl,0
+        push hl
+        pop ix
+        ld bc,Dss.Move_FP
+        ld a,(.file)
+        rst 10h
+        pop hl
+        pop de
+        ld c,Dss.Read
+        ld a,(.file)
+        rst 10h
+        ld de,0
+.clipLen equ $-2
+        ld hl,(SPACE)
+        add hl,de
+        ld (SPACE),hl
+        ld hl,(LineAddr)
+        ld (BlockBeg),hl
+        add hl,de
+        ld (LineAddr),hl
+        ld (BlockEnd),hl
+.close  ld a,0
+.file   equ $-1
+        ld c,Dss.Close
+        rst 10h        
+        ret
 
 ClipboardFileName
         db "CLIPBRD.TXT",0

@@ -67,15 +67,18 @@ _PrevLine
         call Backward
         jr _NxtLn1
 
-   ;CF=1, ECЛИ БЛOK CУЩECTBУET 
-BlockExist ld hl,(BlockBeg)
-           ld de,(BlockEnd)
-           call cp_hl_de: ret
+;CF=1, ECЛИ БЛOK CУЩECTBУET 
+BlockExist
+        ld hl,(BlockBeg)
+        ld de,(BlockEnd)
+        call cp_hl_de
+        ret
 
-RemoveBlock ld hl,(TEXT)
-            ld (BlockBeg),hl
-            ld (BlockEnd),hl
-            ret
+RemoveBlock
+        ld hl,(TEXT)
+        ld (BlockBeg),hl
+        ld (BlockEnd),hl
+        ret
 
 SetCurXY
         push hl
@@ -179,10 +182,17 @@ LIST1   call SetLnAttr
 ;BЫXOД: A - ATPИБУT CTPOKИ HL,
 ;CF=1 -CTPOKA ПPИHAДЛEЖИT БЛOKУ 
 
-SetLnAttr ld a,ScrnAttr:ld de,(BlockEnd)
-          call cp_hl_de:ret nc
-          ld de,(BlockBeg):call cp_hl_de
-          ccf:ret nc:ld a,BlockAttr:ret
+SetLnAttr
+        ld a,ScrnAttr
+        ld de,(BlockEnd)
+        call cp_hl_de
+        ret nc
+        ld de,(BlockBeg)
+        call cp_hl_de
+        ccf
+        ret nc
+        ld a,BlockAttr
+        ret
 
 ;PACПAKOBKA CTPOKИ HL B БУФEP.
 ;BЫXOД: HL-CЛEД.CTPOKA.ECЛИ
@@ -656,7 +666,8 @@ EDIT4   call ReadKey
         jp z,DeleteLine
         cp #2c                  ;ctrl+c
         jp z,EditCopyClipboard
-        ;cp #2d                 ;ctrl+v
+        cp #2d                 ;ctrl+v
+        jp z,EditInsertClipboard
         cp #2b                 ;ctrl+x
         jp z,EditCutClipboard
         CP #57                  ;Ctrl+PgUp
@@ -664,7 +675,7 @@ EDIT4   call ReadKey
         CP #51		        ;Ctrl+PgDn
         jp z,JumpEndTxt
 .next   pop de
-        jr EDIT4
+        jp EDIT4
 .insert pop hl
         ld b,a
         ld a,(Graph_Fl)
@@ -697,6 +708,14 @@ EditCutClipboard
         ld (IsModified),a
         scf
         ret
+EditInsertClipboard
+        call Pack
+        call InsertClipboardFile
+        ld a,1
+        ld (IsModified),a
+        scf
+        ret
+
 Graph_Fl DB 0
 
 IsModified
