@@ -697,7 +697,9 @@ EDIT5   push af
 
 EditCopyClipboard
         call Pack
-        jp WriteClipboardFile
+        call WriteClipboardFile
+        scf
+        ret
 
 EditCutClipboard
         call Pack
