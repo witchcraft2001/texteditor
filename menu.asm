@@ -137,11 +137,6 @@ CleanFileName
         ret
 hFile   db 0
 
-SaveOverwriteMenu
-        DB 0,2
-        DB 17,33,7,"y":DW SaveTextAs.continue
-        DB 17,42,6,"n":DW MAIN2
-
 SaveText
         ld a,(IsModified)
         and a
@@ -150,7 +145,12 @@ SaveText
         and a
         jr z,SaveTextAs
         ld hl,FileName
-        jp SaveTextAs.save
+        ld de,FlNameBuff
+        push de
+        ld bc,128
+        ldir
+        pop de
+        jr SaveTextAs.check
 SaveTextAs
         ld hl,FileName
         ld de,FlNameBuff
@@ -162,6 +162,36 @@ SaveTextAs
         ld de,FlNameBuff
         call InpFlName
         jp c,MAIN2
+SaveTextAs.check
+        call PrepareSaveTarget
+        jr nc,.continue
+        and a
+        jp z,MAIN2
+        jp SaveTextWriteError
+.continue
+        ld hl,FlNameBuff
+.save   call CopyFileName
+        ld hl,(TEXT)
+        ld de,(SPACE)
+SvText1 call SaveFile
+        jp nc,EDIT
+SaveTextWriteError
+        ld a,%00110000
+        ld hl,#0709
+        ld de,#0319
+        call OpenWindow
+        call OutFS
+        DB 22,8,13,"Writing error ...",0
+        call Waitkey
+        jp EDIT
+
+PrepareSaveTarget
+        push hl
+        push de
+        push bc
+        ld a,(FlNameBuff+1)
+        cp ":"
+        call nz,RestoreCurDir
         ld hl,LineBuff
         ld e,l
         ld d,h
@@ -174,35 +204,123 @@ SaveTextAs
         ld de,LineBuff
         ld a,FileAttrib.Arch
         rst #10
-        jr c,.continue
+        jr c,.ready
         ld a,(hl)
         and a
-        jr z,.continue
+        jr z,.ready
+        call SaveOverwriteDialog
+        jr c,.cancel
+        ld hl,FlNameBuff
+        ld de,SaveBakName
+        call BuildBakFileName
+        ld hl,SaveBakName
+        ld c,Dss.Delete
+        rst #10
+        ld hl,FlNameBuff
+        ld de,SaveBakName
+        ld c,Dss.Rename
+        rst #10
+        jr c,.error
+.ready  pop bc
+        pop de
+        pop hl
+        and a
+        ret
+.cancel pop bc
+        pop de
+        pop hl
+        xor a
+        scf
+        ret
+.error  pop bc
+        pop de
+        pop hl
+        scf
+        ret
+
+SaveOverwriteDialog
+        call StoreScrn
         ld a,Colors.Yellow*16
         ld hl,#0C19
-        ld de,#071E:call OpenWindow
+        ld de,#071E
+        call OpenWindow
         call OutFS
         DB 22,14,29,"File exists, overwrite?"
         db 22,16,25,DIVIDER,30
-        DB 22,17,35,"Yes      No",0        
-        ld hl,SaveOverwriteMenu
+        DB 22,17,35,"Yes      No",0
+        ld hl,SaveOverwriteDlgMenu
         call Menu
-        jp MAIN2
-.continue
-        ld hl,FlNameBuff
-.save   call CopyFileName
-        ld hl,(TEXT)
-        ld de,(SPACE)
-SvText1 call SaveFile
-        jp nc,EDIT
-        ld a,%00110000
-        ld hl,#0709
-        ld de,#0319
-        call OpenWindow
-        call OutFS
-        DB 22,8,13,"Writing error ...",0
-        call Waitkey
-        jp EDIT
+.no     call RestoreScrn
+        scf
+        ret
+.yes    call RestoreScrn
+        and a
+        ret
+
+SaveOverwriteDlgMenu
+        DB 0,2
+        DB 17,33,7,"y":DW SaveOverwriteDialog.yes
+        DB 17,42,6,"n":DW SaveOverwriteDialog.no
+
+BuildBakFileName
+        push hl
+        push de
+        push bc
+        ld bc,0
+        ld (BakDotPtr),bc
+.copy   ld a,(hl)
+        ld (de),a
+        and a
+        jr z,.copied
+        cp "/"
+        jr z,.sep
+        cp "\\"
+        jr z,.sep
+        cp ":"
+        jr z,.sep
+        cp "."
+        jr z,.dot
+        inc hl
+        inc de
+        jr .copy
+.sep    ld b,0
+        ld c,b
+        ld (BakDotPtr),bc
+        jr .next
+.dot    inc de
+        ld (BakDotPtr),de
+        dec de
+.next   inc hl
+        inc de
+        jr .copy
+.copied push de
+        ld hl,(BakDotPtr)
+        ld a,h
+        or l
+        jr nz,.withDot
+        pop de
+        ld a,'.'
+        ld (de),a
+        inc de
+        jr .setBak
+.withDot
+        ex de,hl
+        pop hl
+.setBak ld a,'B'
+        ld (de),a
+        inc de
+        ld a,'A'
+        ld (de),a
+        inc de
+        ld a,'K'
+        ld (de),a
+        inc de
+        xor a
+        ld (de),a
+        pop bc
+        pop de
+        pop hl
+        ret
 
 ;Сохраняет блок текста по адресу HL длиной DE в файл с названием в FlNameBuff
 ;по выходу CF=1 - ошибка записи
@@ -242,7 +360,7 @@ SaveBlock
         jp c,MAIN2
         ld hl,(BlockBeg)
         ld de,(BlockEnd)
-        jr SvText1
+        jp SvText1
         
 WriteClipboardFile
         call BlockExist
@@ -367,6 +485,8 @@ Cat1    call Waitkey
 
 FileName   ds 128
 FlNameBuff ds 128
+SaveBakName ds 128
+BakDotPtr   dw 0
 
 NotSavedDialog
         call StoreScrn
@@ -785,4 +905,3 @@ INFO    ld a,15:ld hl,#0b14
 Comprs_Fl DB 0
 EOLN_Fl   DB 1
 ;█ █ *** The END! *** (October 1993) █ █ 
-
