@@ -35,6 +35,11 @@ EndText
 
 SCR_BUF		equ #C000
 SCR_BUF1	equ #C000 + 80*32*2
+SCR_LEN         equ 80
+MAX_LINE_LEN    equ 255
+MAX_COL         equ MAX_LINE_LEN - 1
+MAX_BEG_COL     equ MAX_LINE_LEN - SCR_LEN
+LINEBUF_GUARD   equ 0
 LineBuff	equ #4100
 CurrentDir	equ #4200
 AppDir		equ #4280

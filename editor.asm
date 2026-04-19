@@ -201,7 +201,7 @@ SetLnAttr
 Unpack  push bc
         push hl
         ld hl,LineBuff
-        ld bc,144
+        ld bc,MAX_LINE_LEN + LINEBUF_GUARD
         ld de,LineBuff+1
         ld (hl),32
         ldir
@@ -210,7 +210,7 @@ Unpack  push bc
         call cp_hl_de
         jr nc,Unpk3
         ld de,LineBuff
-        ld b,128
+        ld b,MAX_LINE_LEN
 Unpk0   ld a,(hl)
         inc hl
         cp SPC
@@ -279,7 +279,7 @@ PackBuff
         ld hl,LineBuff
         ld d,h
         ld e,l
-        ld b,128
+        ld b,MAX_LINE_LEN
 Pack1   ld c,0
 Pack2   ld a,(hl)
         cp 32
@@ -776,9 +776,9 @@ SetBegCol
         ld a,#FF
         or %111
         inc a
-        cp 48
+        cp MAX_BEG_COL
         jr c,$+4
-        ld a,48         ;128 - 80 (MAX_STR - SCR_LEN)
+        ld a,MAX_BEG_COL
         ld (BegCol),a
         ret
 
@@ -803,7 +803,7 @@ LEFT2   call Pack
 
 To_Line call T_Line
 RIGHT   ld a,(CurCol)
-RIGHT1  cp 127
+RIGHT1  cp MAX_COL
         jr nc,RIGHT2
         inc a
 RIGHT2  ld (CurCol),a
@@ -828,7 +828,7 @@ HOME    ld a,(BegCol)
         ret nc
         jr LEFT2
 
-ENDLN   ld hl,LineBuff+127:ld b,127
+ENDLN   ld hl,LineBuff+MAX_COL:ld b,MAX_COL
 ENDLN1   ld a,(hl):dec hl:cp 32
          ld a,b:jr nz,RIGHT1
         djnz ENDLN1
@@ -917,7 +917,7 @@ ENTER   call SetModifiedFile
         or a
         jr z,$+3
         inc de
-        ld bc,LineBuff+127
+        ld bc,LineBuff+MAX_COL
         call MoveMem
         ld (hl),13
         ld a,(EOLN_Fl)
@@ -948,7 +948,7 @@ ENTER4  call LeadSpaces
         ld a,(hl)
         cp 13
         jr nz,ENTER5
-        ld b,255
+        ld b,MAX_COL
 ENTER5  pop af
         cp b
         jr c,ENTER6
@@ -966,7 +966,7 @@ ENTER6  ld (CurCol),a
 
 DELETE  call SetModifiedLine
         call CurChrAddr
-        ld bc,LineBuff+129
+        ld bc,LineBuff+MAX_LINE_LEN+1
         ld a,(KeyModes)
         bit 2,a
         jr z,DEL2
@@ -1033,7 +1033,7 @@ BACKSP  ld a,(CurCol):or a:ret z ;CF=0
         call CurChrAddr:ld a,(KeyModes)
         bit 2,a:jr nz,BACKSP1
           dec hl:ld (hl),32:jp BACKSP2
-BACKSP1 dec de:ld bc,LineBuff+129
+BACKSP1 dec de:ld bc,LineBuff+MAX_LINE_LEN+1
         call MoveMem
 BACKSP2 jp LEFT
 
@@ -1041,17 +1041,18 @@ TAB     call Pack:ld hl,(LineAddr)
         call Backward:call Unpack
         call CurChrAddr:ld a,(CurCol)
         ld b,a:ld d,(hl)
-TAB1     ld a,(hl):inc hl:inc b:cp 32
+TAB1     ld a,(hl):inc hl:inc b:jr z,TAB4:cp 32
         jr nz,TAB1
-        bit 7,b:jr nz,TAB4:ld c,b
+        ld c,b
 TAB2     ld a,(hl):inc hl:inc b
-         bit 7,b:jr nz,TAB3:cp 32
+         jr z,TAB3:cp 32
         jr z,TAB2:jr TAB5
 TAB3    ld a,d:cp 32:jr z,TAB4
         ld b,c:jr TAB5
 TAB4     ld a,(CurCol):and %11111000
-         add a,9:ld b,a:jp p,TAB5
-          ld b,128
+         add a,9:jr nc,$+4
+         ld a,MAX_LINE_LEN
+         ld b,a
 TAB5    ld hl,(LineAddr):call Unpack
         dec b:ld a,b:jp RIGHT2
 
@@ -1305,9 +1306,9 @@ SubString
         ld hl,LineBuff
         xor a
         ld b,a
-        ld (LineBuff+128),a
+        ld (LineBuff+MAX_LINE_LEN),a
         add hl,bc
-        ld a,129
+        ld a,MAX_LINE_LEN
         sub c
         ld c,a
         ld b,0
@@ -1359,9 +1360,9 @@ FindOK  ld (LineAddr),hl
         ld (LineNum),de
         ld a,c
         add a,b
-        cp 128
+        cp MAX_LINE_LEN
         jr c,$+4
-        ld a,127
+        ld a,MAX_COL
         ld (CurCol),a
         call SetBegCol
         push bc
@@ -1458,12 +1459,12 @@ Replace call OutFS
         dec de
         ld a,e
         sub low LineBuff ;Было "sub LineBuff", возможно сейчас не правильно написал
-        cp 128
+        cp MAX_LINE_LEN
         jr c,$+4
-        ld a,127
+        ld a,MAX_COL
         ld (CurCol),a
         call SetBegCol
-        ld bc,LineBuff+128
+        ld bc,LineBuff+MAX_LINE_LEN
         ld a,32
         ld (bc),a
         call MoveMem

@@ -214,7 +214,7 @@ T_Line  call CurChrAddr
         call IsOver
         jr z,.toLin1
         inc de 
-        ld bc,LineBuff+127
+        ld bc,LineBuff+MAX_COL
         call MoveMem
 .toLin1 ld (hl),a
         ret
