@@ -8,6 +8,9 @@ Maximum text file length is 42Kb
 Maximum line length is 255 bytes
 
 Hot keys in edit mode:
+  F2 - Save
+  Shift+F2 - Save As
+  F3 - Open (Load)
   F10 - Main menu
   ESC - Command menu
   Ctrl+C - Copy block to clipboard file

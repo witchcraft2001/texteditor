@@ -624,9 +624,24 @@ EDIT4   call ReadKey
         call Beep
         ld hl,EDIT1
         push hl
-        ld a,d        
+        ld a,d
+        and #7f
         cp #44
         jp z,MAINMENU
+        cp #3c
+        jr nz,.f3
+        ld a,d
+        and #80
+        jp nz,HotSaveAs
+        bit 7,b
+        jp nz,HotSaveAs
+        bit 6,b
+        jp nz,HotSaveAs
+        jp HotSave
+.f3    ld a,d
+        and #7f
+        cp #3d
+        jp z,HotOpen
         ld a,e
         cp #1b          ;Esc
         jp z,COMMAND
@@ -694,6 +709,77 @@ EDIT5   push af
         call SetModifiedLine
         and a
         jp EDIT1
+
+HotSave
+        pop de
+        call Pack
+        ld a,(IsModified)
+        and a
+        jp z,EDIT
+        ld a,(FileName)
+        and a
+        jr z,HotSaveAs.input
+        ld hl,FileName
+        ld de,FlNameBuff
+        push de
+        ld bc,128
+        ldir
+        pop de
+        jr HotSaveAs.check
+
+HotSaveAs
+        pop de
+        call Pack
+HotSaveAs.input
+        ld hl,FileName
+        ld de,FlNameBuff
+        push de
+        ld bc,128
+        ldir
+        pop de
+        ld h,3
+        ld de,FlNameBuff
+        call InpFlName
+        jp c,EDIT
+HotSaveAs.check
+        call PrepareSaveTarget
+        jr nc,.save
+        and a
+        jp z,EDIT
+        jp SaveTextWriteError
+.save   ld hl,FlNameBuff
+        call CopyFileName
+        ld hl,(TEXT)
+        ld de,(SPACE)
+        call SaveFile
+        jp nc,EDIT
+        jp SaveTextWriteError
+
+HotOpen
+        pop de
+        call Pack
+        ld a,(IsModified)
+        and a
+        jr z,.input
+        call NotSavedDialog
+        jp c,EDIT
+.input  ld h,4
+        ld de,FlNameBuff
+        call InpFlName
+        jp c,EDIT
+        call BegText
+        ld hl,(TEXT)
+        xor a
+        call LoadTextFile
+        jr nc,.ok
+.errWait
+        call Waitkey
+        jr z,.errWait
+        jp EDIT
+.ok    ld hl,FlNameBuff
+        call CopyFileName
+        call SetUnmodifiedFile
+        jp EDIT
 
 EditCopyClipboard
         call Pack
@@ -1030,6 +1116,7 @@ DEL8    ld (hl),32
         ret
 
 BACKSP  ld a,(CurCol):or a:ret z ;CF=0
+        call SetModifiedLine
         call CurChrAddr:ld a,(KeyModes)
         bit 2,a:jr nz,BACKSP1
           dec hl:ld (hl),32:jp BACKSP2
