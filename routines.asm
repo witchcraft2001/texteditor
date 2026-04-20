@@ -10,8 +10,8 @@ START   ld (SaveSP),sp
         push ix
         ld a,#c0                ;Set the Y-Port value upper than 192
         out (#89),a
-        LD BC,3 * 256 + Dss.GetMem
-        RST #10			; need 3 memory pages
+        LD BC,4 * 256 + Dss.GetMem
+        RST #10			; need 4 memory pages (Pg0/Pg1 = text, Pg2 = screen save, Pg3 = file list)
         JR NC,.next
         pop hl
         LD HL,MsgNoMemory

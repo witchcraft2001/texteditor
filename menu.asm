@@ -88,53 +88,6 @@ New1    ld (SPACE),hl
         jp EDIT
 .nameless
         db "NAMELESS.TXT",0
- ;H -Y-KOOPДИHATA OKHA,
- ;DE-AДPEC БУФEPA ИMEHИ.
-
-InpFlName
-        push de
-        ld de,#0524
-        ld l,2
-        ld a,%00010111
-        call OpenWindow
-        ld l,10
-        inc h
-        ld (PrintXY),hl
-        call OutFS
-        DB "Enter file name:",0
-        inc h
-        inc h
-        ld l,4
-        ld (PrintXY),hl
-        pop de
-        ld c,32
-        call Input
-        call CleanFileName
-        cp 13
-        scf
-        ret nz
-        ; ex hl,de
-        ; push hl
-        ; call IBM_MakeName
-        ; pop de
-        ld a,(de)
-        cp 32
-        ret
-CleanFileName
-        push de
-        push af
-.loop   ld a,(de)
-        and a
-        jr z,.end
-        cp 13
-        jr z,.end        
-        inc de
-        jr .loop
-.end    xor a
-        ld (de),a
-        pop af
-        pop de
-        ret
 hFile   db 0
 
 SaveText
@@ -158,9 +111,9 @@ SaveTextAs
         ld bc,128
         ldir
         pop de
-        ld h,3
-        ld de,FlNameBuff
-        call InpFlName
+        ld hl,FlDlgTitleSave
+        ld a,1
+        call FileDialog
         jp c,MAIN2
 SaveTextAs.check
         call PrepareSaveTarget
@@ -354,9 +307,12 @@ SaveFile
 SaveBlock
         call BlockExist
         jp nc,FILES
-        ld h,7
+        xor a
+        ld (FlNameBuff),a
         ld de,FlNameBuff
-        call InpFlName
+        ld hl,FlDlgTitleBlock
+        ld a,1
+        call FileDialog
         jp c,MAIN2
         ld hl,(BlockBeg)
         ld de,(BlockEnd)
@@ -468,11 +424,15 @@ InsertClipboardFile
 ClipboardFileName
         db "CLIPBRD.TXT",0
 
-Merge   ld h,8
+Merge   xor a
+        ld (FlNameBuff),a
         ld de,FlNameBuff
-        call InpFlName
+        ld hl,FlDlgTitleMerge
+        xor a
+        call FileDialog
         jp c,MAIN2
         ld hl,(SPACE)
+        ld de,FlNameBuff
         xor a
         call LoadTextFile
         ex af,af'
@@ -519,12 +479,16 @@ LoadText
         call NotSavedDialog
         jp c,MAIN2
 SureLoad
-        ld h,4
+        xor a
+        ld (FlNameBuff),a
         ld de,FlNameBuff
-        call InpFlName
+        ld hl,FlDlgTitleOpen
+        xor a
+        call FileDialog
         jp c,MAIN2
         call BegText
         ld hl,(TEXT)
+        ld de,FlNameBuff
         xor a
         call LoadTextFile
         jp c,Cat1
@@ -888,10 +852,10 @@ SettingsFileName
 INFO    ld a,15:ld hl,#0b14
         ld de,#0A27:call OpenWindow
         call OutFS
-        DB 22,12,26,"Text Editor v1.0 (May.2021)"
+        DB 22,12,26,"Text Editor v1.1 (Apr.2026)"
         DB 22,14,22,"based on ZX/IBM Text Editor sources"
         DB 22,15,23,"ver.1.0 (Oct.1993) by Hohlov Oleg"
-        DB 22,16,24,"ported by Mikhaltchenkov Dmitry"
+        DB 22,16,24,"ported by Mikhalchenkov Dmitry"
         db 22,17,20,DIVIDER,39
         DB 22,18,22,"Text Length: ",0
         ld hl,(SPACE):ld de,(TEXT)

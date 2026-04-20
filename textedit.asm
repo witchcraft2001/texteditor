@@ -24,6 +24,7 @@ EntryExec
         include "routines.asm"
         include "editor.asm"
         include "menu.asm"
+        include "filedlg.asm"
 
 ; Font6   insert "Bold.fnt"
 

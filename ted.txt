@@ -1,10 +1,10 @@
-Text Editor v1.0 (Apr.2021)
+Text Editor v1.1 (Apr.2026)
 based on ZX/IBM Text Editor sources
 ver.1.0 (Oct.1993) by Hohlov Oleg
-ported for Sprinter by Mikhaltchenkov Dmitry
+ported for Sprinter by Mikhalchenkov Dmitry
 
 Current limits:
-Maximum text file length is 42Kb
+Maximum text file length is 39Kb
 Maximum line length is 255 bytes
 
 Hot keys in edit mode:

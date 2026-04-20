@@ -737,9 +737,9 @@ HotSaveAs.input
         ld bc,128
         ldir
         pop de
-        ld h,3
-        ld de,FlNameBuff
-        call InpFlName
+        ld hl,FlDlgTitleSave
+        ld a,1
+        call FileDialog
         jp c,EDIT
 HotSaveAs.check
         call PrepareSaveTarget
@@ -763,12 +763,16 @@ HotOpen
         jr z,.input
         call NotSavedDialog
         jp c,EDIT
-.input  ld h,4
+.input  xor a
+        ld (FlNameBuff),a
         ld de,FlNameBuff
-        call InpFlName
+        ld hl,FlDlgTitleOpen
+        xor a
+        call FileDialog
         jp c,EDIT
         call BegText
         ld hl,(TEXT)
+        ld de,FlNameBuff
         xor a
         call LoadTextFile
         jr nc,.ok
@@ -1571,4 +1575,5 @@ EditorPages
 .Pg0		db	#00
 .Pg1		db	#00
 .Pg2		db	#00
+.Pg3		db	#00
 hMem            db      #00
