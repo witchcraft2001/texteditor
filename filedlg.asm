@@ -31,12 +31,15 @@ FileDlg.FieldX     equ FileDlg.X + 9              ; 14
 FileDlg.FieldW     equ FileDlg.DX - 10            ; 60
 FileDlg.ListX      equ FileDlg.X + 2              ; 7
 FileDlg.ListW      equ FileDlg.DX - 3             ; 67
+FileDlg.CellW      equ 16
+FileDlg.ListCols   equ FileDlg.ListW / FileDlg.CellW
 
 FileDlg.AttrMain   equ %00010111
 FileDlg.AttrSel    equ %01110000
 FileDlg.AttrField  equ %01110000
 FileDlg.AttrBtn    equ %01110001
 FileDlg.AttrTitle  equ %00011111
+FileDlg.AttrMark   equ %00110111
 
 FileDlg.EntrySize  equ 16
 FileDlg.EntryHdr   equ #C000                      ; count word (in Pg3 @ bank 3)
@@ -44,6 +47,14 @@ FileDlg.EntryBase  equ #C010
 FileDlg.MaxEntries equ 1020
 
 FileDlg.AttrDir    equ #10
+
+FileDlg.CtlName    equ 0
+FileDlg.CtlList    equ 1
+FileDlg.CtlOk      equ 2
+FileDlg.CtlCancel  equ 3
+
+FileDlg.BtnOpenX   equ FileDlg.X + 18
+FileDlg.BtnCancelX equ FileDlg.X + 34
 
 FileDialog:
         ld (FileDlg.titlePtr),hl
@@ -59,9 +70,13 @@ FileDialog:
 
         xor a
         ld (FileDlg.action),a
+        ld (FileDlg.activeCtl),a
+        dec a
+        ld (FileDlg.lastActiveCtl),a
+        inc a
+        ld (FileDlg.listColOffset),a
         ld hl,0
         ld (FileDlg.listCursor),hl
-        ld (FileDlg.listOffset),hl
 
         ld hl,(FileDlg.userBuf)
         ld de,FileDlg.nameBuf
@@ -70,6 +85,7 @@ FileDialog:
 
         call FileDlg_ReadPath
         call FileDlg_ScanDir
+        call FileDlg_InitFocus
 
         call FileDlg_DrawFrame
         call FileDlg_DrawPath
@@ -77,9 +93,10 @@ FileDialog:
         call FileDlg_DrawButtons
 
 FileDlg_Loop:
+        call FileDlg_RedrawFocus
         call FileDlg_DrawName
         call FileDlg_PositionCursor
-        call ReadKey
+        call FileDlg_ReadKey
         call FileDlg_HandleKey
         jr nc,FileDlg_Loop
 
@@ -266,7 +283,12 @@ FileDlg_PrintPadded:
 ;----------------------------------------------------------
 FileDlg_DrawName:
         call FileDlg_UpdateNameOffset
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        ld a,FileDlg.AttrMain
+        jr nz,.attrSet
         ld a,FileDlg.AttrField
+.attrSet
         ld (PrintAttr),a
         ld a,FileDlg.NameY
         ld (PrintXY+1),a
@@ -314,6 +336,38 @@ FileDlg_UpdateNameOffset:
 ;  Place hardware cursor inside name field.
 ;----------------------------------------------------------
 FileDlg_PositionCursor:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jr z,.name
+        cp FileDlg.CtlList
+        jr z,.list
+        cp FileDlg.CtlOk
+        jr z,.ok
+        ld a,FileDlg.BtnCancelX + 1
+        ld (CurX),a
+        ld a,FileDlg.BtnY
+        ld (CurY),a
+        ret
+.ok
+        ld a,FileDlg.BtnOpenX + 1
+        ld (CurX),a
+        ld a,FileDlg.BtnY
+        ld (CurY),a
+        ret
+.list
+        call FileDlg_GetCursorCell
+        ld a,b
+        add a,FileDlg.ListY
+        ld (CurY),a
+        ld a,c
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,FileDlg.ListX + 1
+        ld (CurX),a
+        ret
+.name
         ld a,(FileDlg.nameCursor)
         ld b,a
         ld a,(FileDlg.nameOffset)
@@ -342,33 +396,98 @@ FileDlg_DrawButtons:
         pop bc
         djnz .clr
 
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlOk
+        ld a,FileDlg.AttrMain
+        jr nz,.openAttr
+        ld a,FileDlg.AttrBtn
+.openAttr
+        ld (PrintAttr),a
         ld a,FileDlg.BtnY
         ld (PrintXY+1),a
-        ld a,FileDlg.X + 18
+        ld a,FileDlg.BtnOpenX
         ld (PrintXY),a
-        ld a,FileDlg.AttrBtn
-        ld (PrintAttr),a
         ld a,(FileDlg.mode)
         or a
-        ld hl,FileDlg.lblOpen
+        ld hl,FileDlg.btnOpen
         jr z,.o
-        ld hl,FileDlg.lblSave
+        ld hl,FileDlg.btnSave
 .o      call OutHL
 
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlCancel
+        ld a,FileDlg.AttrMain
+        jr nz,.cancelAttr
+        ld a,FileDlg.AttrBtn
+.cancelAttr
+        ld (PrintAttr),a
         ld a,FileDlg.BtnY
         ld (PrintXY+1),a
-        ld a,FileDlg.X + 38
+        ld a,FileDlg.BtnCancelX
         ld (PrintXY),a
-        ld hl,FileDlg.lblCancel
+        ld hl,FileDlg.btnCancel
         call OutHL
 
         ld a,FileDlg.AttrMain
         ld (PrintAttr),a
+        ld a,FileDlg.BtnY
+        ld (PrintXY+1),a
+        ld a,FileDlg.X + 47
+        ld (PrintXY),a
+        ld hl,FileDlg.lblHints
+        call OutHL
         ret
 
-FileDlg.lblOpen   db " Enter=Open ",0
-FileDlg.lblSave   db " Enter=Save ",0
-FileDlg.lblCancel db " Esc=Cancel ",0
+FileDlg.btnOpen   db " Open ",0
+FileDlg.btnSave   db " Save ",0
+FileDlg.btnCancel db " Cancel ",0
+FileDlg.lblHints  db "Tab=switch  Esc=cancel",0
+
+;----------------------------------------------------------
+;  Read key with cursor only in the name field.
+;----------------------------------------------------------
+FileDlg_ReadKey:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jp z,ReadKey
+.wait   push hl
+        ld hl,WaitConst
+.loop   call Inkey
+        jr nz,.done
+        dec hl
+        ld a,h
+        or l
+        jr nz,.loop
+        pop hl
+        jr .wait
+.done   ld h,a
+        push bc
+        ld a,c
+        and 1
+        bit 7,c
+        jr z,.next
+        set 1,a
+.next   bit 1,c
+        jr z,.next1
+        set 2,a
+.next1  ld c,a
+        ld a,(KeyModes)
+        and %11111000
+        or c
+        ld (KeyModes),a
+        bit 1,a
+        jr nz,.graphOff
+        pop bc
+        ld a,h
+        pop hl
+        ret
+.graphOff
+        xor a
+        ld (Graph_Fl),a
+        pop bc
+        ld a,h
+        pop hl
+        ret
 
 ;----------------------------------------------------------
 ;  Scan current directory, populate Pg3 entry list.
@@ -392,9 +511,10 @@ FileDlg_ScanDir:
         call CallDss
         jr nc,.loop
 .done
+        xor a
+        ld (FileDlg.listColOffset),a
         ld hl,0
         ld (FileDlg.listCursor),hl
-        ld (FileDlg.listOffset),hl
         ret
 
 ;----------------------------------------------------------
@@ -459,81 +579,89 @@ FileDlg_EntryAddr:
 ;----------------------------------------------------------
 FileDlg_DrawListFull:
         ld b,0
-.loop   push bc
+.row    ld c,0
+.col    push bc
         ld a,b
-        call FileDlg_DrawListRow
+        call FileDlg_DrawListCell
         pop bc
+        inc c
+        ld a,c
+        cp FileDlg.ListCols
+        jr c,.col
         inc b
         ld a,b
         cp FileDlg.ListRows
-        jr c,.loop
-        ld hl,(FileDlg.listOffset)
-        ld (FileDlg.lastOffset),hl
+        jr c,.row
         ld hl,(FileDlg.listCursor)
         ld (FileDlg.lastCursor),hl
         ret
 
 ;----------------------------------------------------------
-;  Incremental list repaint: only touch rows whose state changed.
+;  Incremental list repaint: grid is small enough to redraw fully.
 ;----------------------------------------------------------
 FileDlg_RefreshList:
-        ld hl,(FileDlg.listOffset)
-        ld de,(FileDlg.lastOffset)
-        or a
-        sbc hl,de
-        ld a,h
-        or l
-        jp nz,FileDlg_DrawListFull
+        jp FileDlg_DrawListFull
 
-        ; redraw old cursor row (to clear highlight)
-        ld hl,(FileDlg.lastCursor)
-        ld de,(FileDlg.lastOffset)
+;----------------------------------------------------------
+;  Compute cursor row/column inside visible grid.
+;  Out: B=row, C=visible column.
+;----------------------------------------------------------
+FileDlg_GetCursorCell:
+        ld hl,(FileDlg.listCursor)
+        ld b,0
+.div    ld a,h
         or a
-        sbc hl,de
-        ld a,h
-        or a
-        jr nz,.skipOld
+        jr nz,.sub
         ld a,l
         cp FileDlg.ListRows
-        jr nc,.skipOld
-        push af
-        call FileDlg_DrawListRow
-        pop af
-.skipOld
-        ld hl,(FileDlg.listCursor)
-        ld de,(FileDlg.listOffset)
+        jr c,.done
+.sub    ld de,FileDlg.ListRows
         or a
         sbc hl,de
-        ld a,h
-        or a
-        jr nz,.skipNew
-        ld a,l
-        cp FileDlg.ListRows
-        jr nc,.skipNew
-        call FileDlg_DrawListRow
-.skipNew
-        ld hl,(FileDlg.listCursor)
-        ld (FileDlg.lastCursor),hl
-        ld hl,(FileDlg.listOffset)
-        ld (FileDlg.lastOffset),hl
+        inc b
+        jr .div
+.done   ld c,b
+        ld a,(FileDlg.listColOffset)
+        ld d,a
+        ld a,c
+        sub d
+        ld c,a
+        ld b,l
         ret
 
 ;----------------------------------------------------------
-;  Draw one list row. A = row index (0..ListRows-1).
+;  Draw one list cell. A=row, C=column.
 ;----------------------------------------------------------
-FileDlg_DrawListRow:
-        push af
+FileDlg_DrawListCell:
+        ld b,a
+        ld a,b
         add a,FileDlg.ListY
         ld (PrintXY+1),a
-        ld a,FileDlg.ListX
+        ld a,c
+        add a,a
+        add a,a
+        add a,a
+        add a,a
+        add a,FileDlg.ListX
         ld (PrintXY),a
-        pop af
-
-        ; global index = offset + A
+        push bc
+        ld a,(FileDlg.listColOffset)
+        add a,c
+        ld l,a
+        ld h,0
+        ld d,h
+        ld e,l
+        add hl,hl
+        add hl,hl
+        add hl,hl
+        add hl,hl
+        or a
+        sbc hl,de                     ; hl = col * 15
+        ld a,b
         ld e,a
         ld d,0
-        ld hl,(FileDlg.listOffset)
-        add hl,de
+        add hl,de                     ; hl = index
+        pop bc
         push hl
         ld de,(FileDlg.EntryHdr)
         or a
@@ -544,7 +672,7 @@ FileDlg_DrawListRow:
 .blank
         ld a,FileDlg.AttrMain
         ld (PrintAttr),a
-        ld c,FileDlg.ListW
+        ld c,FileDlg.CellW
         ld a,32
         ld b,c
 .b1     push bc
@@ -560,6 +688,10 @@ FileDlg_DrawListRow:
         pop hl
         ld a,FileDlg.AttrMain
         jr nz,.noHi
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlList
+        ld a,FileDlg.AttrMark
+        jr nz,.noHi
         ld a,FileDlg.AttrSel
 .noHi   ld (PrintAttr),a
         call FileDlg_EntryAddr
@@ -568,7 +700,7 @@ FileDlg_DrawListRow:
 
 ;----------------------------------------------------------
 ;  Render entry row. HL -> 16-byte entry.
-;  Writes exactly FileDlg.ListW chars at current PrintXY.
+;  Writes exactly FileDlg.CellW chars at current PrintXY.
 ;----------------------------------------------------------
 FileDlg_RenderEntry:
         ld a,(hl)
@@ -597,7 +729,7 @@ FileDlg_RenderEntry:
 .pad
         ld a,(FileDlg.renderCnt)
         ld b,a
-        ld a,FileDlg.ListW
+        ld a,FileDlg.CellW
         sub b
         ret z
         ret c
@@ -716,28 +848,31 @@ FileDlg_HandleKey:
         ld a,d
         and #7F
         cp #58
-        jp z,FileDlg_ListUp
+        jp z,FileDlg_OnUp
         cp #52
-        jp z,FileDlg_ListDown
+        jp z,FileDlg_OnDown
         cp #59
-        jp z,FileDlg_ListPgUp
+        jp z,FileDlg_OnPgUp
         cp #53
-        jp z,FileDlg_ListPgDn
+        jp z,FileDlg_OnPgDn
         cp #4F
-        jp z,FileDlg_NameDel
+        jp z,FileDlg_OnDel
         cp #54
-        jp z,FileDlg_NameLeft
+        jp z,FileDlg_OnLeft
         cp #56
-        jp z,FileDlg_NameRight
+        jp z,FileDlg_OnRight
         cp #57
-        jp z,FileDlg_NameHome
+        jp z,FileDlg_OnHome
         cp #51
-        jp z,FileDlg_NameEnd
+        jp z,FileDlg_OnEnd
         cp #3D
         jp z,FileDlg_Parent
         cp #41
         jp z,FileDlg_Refresh
 
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jr nz,.no
         ld a,e
         cp 32
         jr c,.no
@@ -754,13 +889,22 @@ FileDlg_OnEsc:
         ret
 
 ;----------------------------------------------------------
-;  Enter handling: empty name -> activate selected row;
-;  ".." -> ChDir up; other -> return name to caller.
+;  Enter handling: act only on the focused control.
 ;----------------------------------------------------------
 FileDlg_OnEnter:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jp z,FileDlg_OnEnterName
+        cp FileDlg.CtlList
+        jp z,FileDlg_ActivateSelected
+        cp FileDlg.CtlOk
+        jp z,FileDlg_OnEnterOk
+        jp FileDlg_OnEsc
+
+FileDlg_OnEnterName:
         ld a,(FileDlg.nameLen)
         or a
-        jp z,FileDlg_ActivateSelected
+        ret z
 
         ld a,(FileDlg.nameBuf)
         cp "."
@@ -783,6 +927,15 @@ FileDlg_OnEnter:
         or a
         ret
 .accept
+        ld a,1
+        ld (FileDlg.action),a
+        scf
+        ret
+
+FileDlg_OnEnterOk:
+        ld a,(FileDlg.nameLen)
+        or a
+        ret z
         ld a,1
         ld (FileDlg.action),a
         scf
@@ -870,6 +1023,42 @@ FileDlg_Refresh:
 ;----------------------------------------------------------
 ;  List navigation.
 ;----------------------------------------------------------
+FileDlg_EnsureCursorVisible:
+        call FileDlg_GetCursorCell
+        ld a,c
+        cp FileDlg.ListCols
+        jr c,.ok
+        sub FileDlg.ListCols-1
+        ld (FileDlg.listColOffset),a
+        ret
+.ok     ld a,c
+        bit 7,a
+        ret z
+        call FileDlg_GetCursorColumn
+        ld (FileDlg.listColOffset),a
+        ret
+
+FileDlg_GetCursorColumn:
+        ld hl,(FileDlg.listCursor)
+        xor a
+.div    ld b,a
+        ld a,h
+        or a
+        jr nz,.sub
+        ld a,l
+        cp FileDlg.ListRows
+        jr c,.done
+.sub    ld a,b
+        inc a
+        push af
+        ld de,FileDlg.ListRows
+        or a
+        sbc hl,de
+        pop af
+        jr .div
+.done   ld a,b
+        ret
+
 FileDlg_ListUp:
         ld hl,(FileDlg.listCursor)
         ld a,h
@@ -877,13 +1066,7 @@ FileDlg_ListUp:
         jr z,.stay
         dec hl
         ld (FileDlg.listCursor),hl
-        ld de,(FileDlg.listOffset)
-        or a
-        sbc hl,de
-        jr nc,.done
-        ld hl,(FileDlg.listCursor)
-        ld (FileDlg.listOffset),hl
-.done
+        call FileDlg_EnsureCursorVisible
         call FileDlg_RefreshList
 .stay   or a
         ret
@@ -902,20 +1085,7 @@ FileDlg_ListDown:
         ld hl,(FileDlg.listCursor)
         inc hl
         ld (FileDlg.listCursor),hl
-        ; if cursor - offset >= ListRows, scroll
-        ld de,(FileDlg.listOffset)
-        push hl
-        or a
-        sbc hl,de
-        ld a,l
-        pop hl
-        cp FileDlg.ListRows
-        jr c,.done
-        ld de,FileDlg.ListRows-1
-        or a
-        sbc hl,de
-        ld (FileDlg.listOffset),hl
-.done
+        call FileDlg_EnsureCursorVisible
         call FileDlg_RefreshList
 .stay   or a
         ret
@@ -926,20 +1096,14 @@ FileDlg_ListPgUp:
         or l
         jr z,.stay
         ld hl,(FileDlg.listCursor)
-        ld de,FileDlg.ListRows
+        ld de,FileDlg.ListRows * FileDlg.ListCols
         or a
         sbc hl,de
         jr nc,.cok
         ld hl,0
 .cok    ld (FileDlg.listCursor),hl
-        ld de,(FileDlg.listOffset)
-        push hl
-        or a
-        sbc hl,de
-        pop hl
-        jr nc,.redraw
-        ld (FileDlg.listOffset),hl
-.redraw call FileDlg_DrawListFull
+        call FileDlg_EnsureCursorVisible
+        call FileDlg_DrawListFull
 .stay   or a
         ret
 
@@ -951,7 +1115,7 @@ FileDlg_ListPgDn:
         dec hl
         ld de,(FileDlg.listCursor)
         ex de,hl                     ; hl=cursor, de=count-1
-        ld bc,FileDlg.ListRows
+        ld bc,FileDlg.ListRows * FileDlg.ListCols
         add hl,bc
         push hl
         or a
@@ -961,20 +1125,8 @@ FileDlg_ListPgDn:
         ld h,d
         ld l,e
 .noClip ld (FileDlg.listCursor),hl
-        ; adjust offset: ensure cursor visible
-        ld de,(FileDlg.listOffset)
-        push hl
-        or a
-        sbc hl,de
-        ld a,l
-        pop hl
-        cp FileDlg.ListRows
-        jr c,.redraw
-        ld de,FileDlg.ListRows-1
-        or a
-        sbc hl,de
-        ld (FileDlg.listOffset),hl
-.redraw call FileDlg_DrawListFull
+        call FileDlg_EnsureCursorVisible
+        call FileDlg_DrawListFull
 .stay   or a
         ret
 
@@ -1014,6 +1166,12 @@ FileDlg_NameEnd:
         ret
 
 FileDlg_OnBackspace:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jr z,.edit
+        or a
+        ret
+.edit
         ld a,(FileDlg.nameCursor)
         or a
         jr z,.atLeft
@@ -1115,25 +1273,185 @@ FileDlg_InsertChar:
         ret
 
 ;----------------------------------------------------------
-;  Tab: copy selected entry name into name field.
+;  Tab: cycle dialog focus.
 ;----------------------------------------------------------
 FileDlg_OnTab:
+        ld a,d
+        cp #8F
+        jr z,FileDlg_PrevFocus
+        ld a,(FileDlg.activeCtl)
+        inc a
+        cp FileDlg.CtlCancel + 1
+        jr c,.set
+        xor a
+.set    ld (FileDlg.activeCtl),a
+        or a
+        ret
+
+FileDlg_PrevFocus:
+        ld a,(FileDlg.activeCtl)
+        or a
+        jr nz,.set
+        ld a,FileDlg.CtlCancel + 1
+.set    dec a
+        ld (FileDlg.activeCtl),a
+        or a
+        ret
+
+;----------------------------------------------------------
+;  Initial focus: Save -> name field, Open/Merge -> list,
+;  unless a name is already prefilled.
+;----------------------------------------------------------
+FileDlg_InitFocus:
+        ld a,(FileDlg.mode)
+        or a
+        jr nz,.name
+        ld a,(FileDlg.nameLen)
+        or a
+        jr nz,.name
+        ld a,FileDlg.CtlList
+        ld (FileDlg.activeCtl),a
+        ret
+.name   xor a
+        ld (FileDlg.activeCtl),a
+        ret
+
+;----------------------------------------------------------
+;  Redraw controls whose visuals depend on focus.
+;----------------------------------------------------------
+FileDlg_RedrawFocus:
+        ld a,(FileDlg.activeCtl)
+        ld b,a
+        ld a,(FileDlg.lastActiveCtl)
+        cp b
+        ret z
+        ld a,b
+        ld (FileDlg.lastActiveCtl),a
+        call FileDlg_DrawListFull
+        call FileDlg_DrawButtons
+        ret
+
+FileDlg_OnUp:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlList
+        jp z,FileDlg_ListUp
+        or a
+        ret
+
+FileDlg_OnDown:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlList
+        jp z,FileDlg_ListDown
+        or a
+        ret
+
+FileDlg_OnPgUp:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlList
+        jp z,FileDlg_ListPgUp
+        or a
+        ret
+
+FileDlg_OnPgDn:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlList
+        jp z,FileDlg_ListPgDn
+        or a
+        ret
+
+FileDlg_OnDel:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jp z,FileDlg_NameDel
+        or a
+        ret
+
+FileDlg_OnLeft:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jp z,FileDlg_NameLeft
+        cp FileDlg.CtlList
+        jp z,FileDlg_ListLeft
+        cp FileDlg.CtlOk
+        jr z,.stay
+        cp FileDlg.CtlCancel
+        jr nz,.done
+        ld a,FileDlg.CtlOk
+        ld (FileDlg.activeCtl),a
+        jr .done
+.stay   or a
+        ret
+.done   or a
+        ret
+
+FileDlg_OnRight:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jp z,FileDlg_NameRight
+        cp FileDlg.CtlList
+        jp z,FileDlg_ListRight
+        cp FileDlg.CtlOk
+        jr z,.toCancel
+        cp FileDlg.CtlCancel
+        jr z,.stay
+        or a
+        ret
+.toCancel
+        ld a,FileDlg.CtlCancel
+        ld (FileDlg.activeCtl),a
+.stay   or a
+        ret
+
+FileDlg_OnHome:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jp z,FileDlg_NameHome
+        or a
+        ret
+
+FileDlg_OnEnd:
+        ld a,(FileDlg.activeCtl)
+        cp FileDlg.CtlName
+        jp z,FileDlg_NameEnd
+        or a
+        ret
+
+FileDlg_ListLeft:
+        ld hl,(FileDlg.listCursor)
+        ld de,FileDlg.ListRows
+        or a
+        sbc hl,de
+        jr nc,.set
+        or a
+        ret
+.set    ld (FileDlg.listCursor),hl
+        call FileDlg_EnsureCursorVisible
+        call FileDlg_RefreshList
+        or a
+        ret
+
+FileDlg_ListRight:
         ld hl,(FileDlg.EntryHdr)
         ld a,h
         or l
-        jr z,.d
+        ret z
+        dec hl
+        ex de,hl                     ; de = last index
         ld hl,(FileDlg.listCursor)
-        ld de,(FileDlg.EntryHdr)
+        ld bc,FileDlg.ListRows
+        add hl,bc
+        push hl
         or a
         sbc hl,de
-        jr nc,.d
-        ld hl,(FileDlg.listCursor)
-        call FileDlg_EntryAddr
-        inc hl
-        ld de,FileDlg.nameBuf
-        call FileDlg_NameToStr
-        call FileDlg_RecalcName
-.d      or a
+        pop hl
+        jr c,.set
+        jr z,.set
+        or a
+        ret
+.set    ld (FileDlg.listCursor),hl
+        call FileDlg_EnsureCursorVisible
+        call FileDlg_RefreshList
+        or a
         ret
 
 ;----------------------------------------------------------
@@ -1144,11 +1462,12 @@ FileDlg.userBuf    dw 0
 FileDlg.mode       db 0
 FileDlg.action     db 0
 FileDlg.savedP3    db 0
+FileDlg.activeCtl  db 0
+FileDlg.lastActiveCtl db 0
 
 FileDlg.listCursor dw 0
-FileDlg.listOffset dw 0
+FileDlg.listColOffset db 0
 FileDlg.lastCursor dw 0
-FileDlg.lastOffset dw 0
 
 FileDlg.nameLen    db 0
 FileDlg.nameCursor db 0

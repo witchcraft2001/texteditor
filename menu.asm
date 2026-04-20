@@ -600,34 +600,34 @@ SETUP   ld a,(AutoBrackets)
 .noCompress
         ld (.compress),a
         ld a,15
-        ld hl,#0116
+        ld hl,#0110
         ld de,#0716:call OpenWindow
         call OutFS
-        DB 22,2,24,"EOLN code"
-        DB 22,3,24,"Compress",SPC,9
+        DB 22,2,18,"EOLN code"
+        DB 22,3,18,"Compress",SPC,9
 .compress
         db #f9
-        DB 22,4,24,"auto Brackets",SPC,4
+        DB 22,4,18,"auto Brackets",SPC,4
 .brackets
         db #f9
-        db 22,5,22,DIVIDER,22
-        DB 22,6,24,"Save settings",0
+        db 22,5,16,DIVIDER,22
+        DB 22,6,18,"Save settings",0
         ld a,(EOLN_Fl)
         and a
         jr z,.cr
         call OutFS
-        DB 22,2,37,"CR/LF",0
+        DB 22,2,31,"CR/LF",0
         jr .next
 .cr     call OutFS
-        DB 22,2,40,"CR",0
+        DB 22,2,34,"CR",0
 .next   ld hl,SetUpMenu
         call Menu:jp MAIN2
 
 SetUpMenu DB 0,4
-          DB 2,23,20,"e":DW SwitchEOLN
-          DB 3,23,20,"c":DW SwitchCompress
-          DB 4,23,20,"b":DW SwitchBrackets
-          DB 6,23,20,"s":DW SaveSettings
+          DB 2,17,20,"e":DW SwitchEOLN
+          DB 3,17,20,"c":DW SwitchCompress
+          DB 4,17,20,"b":DW SwitchBrackets
+          DB 6,17,20,"s":DW SaveSettings
 
 SwitchBrackets
         ld hl,AutoBrackets
