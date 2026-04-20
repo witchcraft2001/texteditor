@@ -103,7 +103,9 @@ SaveText
         ld bc,128
         ldir
         pop de
-        jr SaveTextAs.check
+        call PrepareSaveTargetNoPrompt
+        jp nc,SaveTextContinue
+        jp SaveTextWriteError
 SaveTextAs
         ld hl,FileName
         ld de,FlNameBuff
@@ -116,12 +118,12 @@ SaveTextAs
         call FileDialog
         jp c,MAIN2
 SaveTextAs.check
-        call PrepareSaveTarget
-        jr nc,.continue
+        call PrepareSaveTargetWithPrompt
+        jp nc,SaveTextContinue
         and a
         jp z,MAIN2
         jp SaveTextWriteError
-.continue
+SaveTextContinue
         ld hl,FlNameBuff
 .save   call CopyFileName
         ld hl,(TEXT)
@@ -138,7 +140,14 @@ SaveTextWriteError
         call Waitkey
         jp EDIT
 
-PrepareSaveTarget
+PrepareSaveTargetNoPrompt
+        xor a
+        jr PrepareSaveTargetCommon
+
+PrepareSaveTargetWithPrompt
+        ld a,1
+PrepareSaveTargetCommon
+        ld (.confirmOverwrite),a
         push hl
         push de
         push bc
@@ -161,8 +170,13 @@ PrepareSaveTarget
         ld a,(hl)
         and a
         jr z,.ready
+        ld a,0
+.confirmOverwrite equ $-1
+        and a
+        jr z,.rename
         call SaveOverwriteDialog
         jr c,.cancel
+.rename
         ld hl,FlNameBuff
         ld de,SaveBakName
         call BuildBakFileName

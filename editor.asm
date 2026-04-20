@@ -724,7 +724,9 @@ HotSave
         ld bc,128
         ldir
         pop de
-        jr HotSaveAs.check
+        call PrepareSaveTargetNoPrompt
+        jp nc,HotSaveDo
+        jp SaveTextWriteError
 
 HotSaveAs
         pop de
@@ -741,12 +743,13 @@ HotSaveAs.input
         call FileDialog
         jp c,EDIT
 HotSaveAs.check
-        call PrepareSaveTarget
-        jr nc,.save
+        call PrepareSaveTargetWithPrompt
+        jp nc,HotSaveDo
         and a
         jp z,EDIT
         jp SaveTextWriteError
-.save   ld hl,FlNameBuff
+HotSaveDo
+        ld hl,FlNameBuff
         call CopyFileName
         ld hl,(TEXT)
         ld de,(SPACE)
