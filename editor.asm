@@ -477,8 +477,8 @@ PrintMenu
         call OutFS
         DB 22,0,0,16,%00110000
         DB SPC,3,"File",SPC,3,"Edit"
-        DB SPC,3,"Print",SPC,3,"SetUp"
-        DB SPC,3,"Info",SPC,5 + 38,0
+        DB SPC,3,"SetUp",SPC,3,"Info"
+        DB SPC,12 + 38,0
 
 PrintKeyModes
         push hl
@@ -596,12 +596,11 @@ MAIN3   ld hl,MainMenu
         call Menu
         jr EDIT
 
-MainMenu DB 1,5
+MainMenu DB 1,4
          DB 0,2,6,"f":DW FILES
          DB 0,9,6,"e":DW EDIT
-         DB 0,16,7,"p":DW PRINT
-         DB 0,24,7,"s":DW SETUP
-         DB 0,32,6,"i":DW INFO
+         DB 0,16,7,"s":DW SETUP
+         DB 0,24,6,"i":DW INFO
 
 EDIT    ld iy,KeyModes
         call PrintEdInfo
