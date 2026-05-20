@@ -1,3 +1,4 @@
 /build
 /*.lst
 editor.exe
+.DS_Store
